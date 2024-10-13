@@ -1,0 +1,30 @@
+[package]
+name = "endian-writer"
+version = "0.1.0"
+edition = "2021"
+description = "[no_std] Methods for efficient reading and writing of structures to raw pointers in a stream-like fashion."
+repository = "https://github.com/Sewer56/endian-writer"
+license-file = "LICENSE"
+include = ["src/**/*"]
+
+[features]
+default = []
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[dev-dependencies]
+
+# Profile Build
+[profile.profile]
+inherits = "release"
+debug = true
+codegen-units = 1
+lto = true
+strip = false  # No stripping!!
+
+# Optimized Release Build
+[profile.release]
+codegen-units = 1
+lto = true
+strip = true  # Automatically strip symbols from the binary.
+panic = "abort"
+
