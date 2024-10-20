@@ -10,6 +10,10 @@ include = ["src/**/*"]
 [features]
 default = []
 
+[dependencies]
+concat-idents = "1.1.5"
+paste = "1.0.15"
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dev-dependencies]
 

@@ -1,71 +1,7 @@
-use crate::{EndianReaderTrait, HasSize};
+use crate::EndianReaderTrait;
 use core::mem::size_of;
 use core::ptr::{copy_nonoverlapping, read_unaligned};
-
-/// A trait for types that can be read in little-endian format from the current position.
-///
-/// # Examples
-///
-/// Implementing `ReadLittleEndian` for `u32`:
-///
-/// ```compile_fail
-/// use endian_writer::LittleEndianReader;
-/// use endian_writer::ReadLittleEndian;
-/// use core::mem::size_of;
-/// use core::ptr::read_unaligned;
-///
-/// impl ReadLittleEndian for u32 {
-///     unsafe fn read_le(reader: &mut LittleEndianReader) -> Self {
-///         let value = read_unaligned(reader.ptr as *const u32);
-///         reader.ptr = reader.ptr.add(size_of::<u32>());
-///         Self::from_le(value)
-///     }
-/// }
-/// ```
-pub trait ReadLittleEndian {
-    /// Reads the value in little-endian format from the current position.
-    ///
-    /// # Safety
-    ///
-    /// This method is unsafe because it reads directly from memory without bounds checking.
-    /// The caller must ensure that the reader has enough data to read the value.
-    unsafe fn read_le(reader: &mut LittleEndianReader) -> Self;
-}
-
-/// A trait for types that can be read in little-endian format from a specified offset.
-/// The reader is not advanced.
-///
-/// # Examples
-///
-/// Implementing `ReadLittleEndianAtOffset` for `u32`:
-///
-/// ```compile_fail
-/// use endian_writer::LittleEndianReader;
-/// use endian_writer::ReadLittleEndianAtOffset;
-/// use core::mem::size_of;
-/// use core::ptr::read_unaligned;
-///
-/// impl ReadLittleEndianAtOffset for u32 {
-///     unsafe fn read_at_offset_le(reader: &mut LittleEndianReader, offset_in_bytes: isize) -> Self {
-///         let value = read_unaligned(reader.ptr.offset(offset_in_bytes) as *const u32);
-///         Self::from_le(value)
-///     }
-/// }
-/// ```
-pub trait ReadLittleEndianAtOffset {
-    /// Reads the value in little-endian format from the specified offset.
-    ///
-    /// # Safety
-    ///
-    /// This method is unsafe because it reads directly from memory without bounds checking.
-    /// The caller must ensure that the reader has enough data to read the value at the given offset.
-    ///
-    /// # Parameters
-    ///
-    /// * `reader`: The [LittleEndianReader] to read from.
-    /// * `offset_in_bytes`: The offset in number of bytes from the current position.
-    unsafe fn read_at_offset_le(reader: &mut LittleEndianReader, offset_in_bytes: isize) -> Self;
-}
+use paste::paste;
 
 /// A utility for reading data in little-endian format from a raw pointer.
 #[derive(Debug)]
@@ -86,55 +22,6 @@ impl LittleEndianReader {
     /// * `ptr`: A raw const pointer to the memory location from where data will be read.
     pub unsafe fn new(ptr: *const u8) -> Self {
         LittleEndianReader { ptr }
-    }
-
-    /// Reads a value from the current position and advances the pointer.
-    ///
-    /// This method can read any type that implements the `ReadLittleEndian` trait.
-    ///
-    /// # Safety
-    ///
-    /// This method is unsafe because it reads directly from memory without bounds checking.
-    /// The caller must ensure that there's enough data to read the value.
-    ///
-    /// # Type Parameters
-    ///
-    /// * `T`: The type of value to read, which must implement `ReadLittleEndian`.
-    ///
-    /// # Returns
-    ///
-    /// The value read from memory, interpreted in little-endian format.
-    #[inline(always)]
-    pub unsafe fn read<T: ReadLittleEndian>(&mut self) -> T {
-        T::read_le(self)
-    }
-
-    /// Reads a value at the specified offset without advancing the pointer.
-    ///
-    /// This method can read any type that implements the `ReadLittleEndianAtOffset` trait.
-    ///
-    /// # Safety
-    ///
-    /// This method is unsafe because it reads directly from memory without bounds checking.
-    /// The caller must ensure that there's enough data to read the value at the given offset.
-    ///
-    /// # Type Parameters
-    ///
-    /// * `T`: The type of value to read, which must implement `ReadLittleEndianAtOffset`.
-    ///
-    /// # Parameters
-    ///
-    /// * `offset_in_bytes`: The offset in number of bytes from the current position.
-    ///
-    /// # Returns
-    ///
-    /// The value read from memory at the specified offset, interpreted in little-endian format.
-    #[inline(always)]
-    pub unsafe fn read_at_offset<T: ReadLittleEndianAtOffset>(
-        &mut self,
-        offset_in_bytes: isize,
-    ) -> T {
-        T::read_at_offset_le(self, offset_in_bytes)
     }
 
     /// Reads a byte slice from the current position and advances the pointer.
@@ -169,6 +56,62 @@ impl LittleEndianReader {
     }
 }
 
+/// Macro to implement read methods for base types (excluding floats)
+macro_rules! define_little_endian_read_methods {
+    ($($type:ty),*) => {
+        $(
+            paste! {
+                #[doc = concat!("Reads a [`", stringify!($type), "`] from the current position and advances the pointer.")]
+                unsafe fn [<read_ $type>](&mut self) -> $type {
+                    let value = read_unaligned(self.ptr as *const $type).to_le();
+                    self.ptr = self.ptr.add(size_of::<$type>());
+                    value
+                }
+
+                #[doc = concat!("Reads a [`", stringify!($type), "`] at the specified offset without advancing the pointer.")]
+                ///
+                /// # Parameters
+                ///
+                /// * `offset`: The offset in bytes from the current position.
+                unsafe fn [<read_ $type _at_offset>](&mut self, offset: isize) -> $type {
+                    let ptr_at_offset = self.ptr.offset(offset);
+                    let value = read_unaligned(ptr_at_offset as *const $type).to_le();
+                    value
+                }
+            }
+        )*
+    };
+}
+
+/// Macro to implement read methods for floating-point types
+macro_rules! define_little_endian_float_read_methods {
+    ($($type:ty),*) => {
+        $(
+            paste! {
+                #[doc = concat!("Reads a [`", stringify!($type), "`] from the current position and advances the pointer.")]
+                unsafe fn [<read_ $type>](&mut self) -> $type {
+                    let mut bytes = [0u8; size_of::<$type>()];
+                    copy_nonoverlapping(self.ptr, bytes.as_mut_ptr(), size_of::<$type>());
+                    self.ptr = self.ptr.add(size_of::<$type>());
+                    <$type>::from_le_bytes(bytes)
+                }
+
+                #[doc = concat!("Reads a [`", stringify!($type), "`] at the specified offset without advancing the pointer.")]
+                ///
+                /// # Parameters
+                ///
+                /// * `offset`: The offset in bytes from the current position.
+                unsafe fn [<read_ $type:lower _at_offset>](&mut self, offset: isize) -> $type {
+                    let ptr_at_offset = self.ptr.offset(offset);
+                    let mut bytes = [0u8; size_of::<$type>()];
+                    copy_nonoverlapping(ptr_at_offset, bytes.as_mut_ptr(), size_of::<$type>());
+                    <$type>::from_le_bytes(bytes)
+                }
+            }
+        )*
+    };
+}
+
 impl EndianReaderTrait for LittleEndianReader {
     unsafe fn read_bytes(&mut self, data: &mut [u8]) {
         self.read_bytes(data)
@@ -177,63 +120,10 @@ impl EndianReaderTrait for LittleEndianReader {
     unsafe fn seek(&mut self, offset: isize) {
         self.seek(offset)
     }
+
+    define_little_endian_read_methods!(i8, u8, i16, u16, i32, u32, i64, u64);
+    define_little_endian_float_read_methods!(f32, f64);
 }
-
-/// Blanket implementation: Automatically implement `ReadLittleEndian` for any type
-/// that implements `ReadLittleEndianAtOffset` and `HasSize`.
-impl<T> ReadLittleEndian for T
-where
-    T: ReadLittleEndianAtOffset + HasSize,
-{
-    #[inline(always)]
-    unsafe fn read_le(reader: &mut LittleEndianReader) -> Self {
-        // Read at current position (offset 0)
-        let result = T::read_at_offset_le(reader, 0);
-        // Advance the reader's pointer by the serialized size
-        reader.seek(T::size_in_bytes() as isize);
-        result
-    }
-}
-
-// Implement ReadLittleEndian for various integer types
-macro_rules! impl_read_little_endian {
-    ($($t:ty),*) => {
-        $(
-            impl ReadLittleEndianAtOffset for $t {
-                #[inline(always)]
-                #[allow(clippy::size_of_in_element_count)]
-                unsafe fn read_at_offset_le(reader: &mut LittleEndianReader, offset_in_bytes: isize) -> Self {
-                    let value = read_unaligned(reader.ptr.offset(offset_in_bytes) as *const $t);
-                    <$t>::from_le(value)
-                }
-            }
-        )*
-    };
-}
-
-impl_read_little_endian!(i8, u8, i16, u16, i32, u32, i64, u64);
-
-// Special implementation for floating-point types
-macro_rules! impl_read_little_endian_float {
-    ($($t:ty),*) => {
-        $(
-            impl ReadLittleEndianAtOffset for $t {
-                #[inline(always)]
-                unsafe fn read_at_offset_le(reader: &mut LittleEndianReader, offset_in_bytes: isize) -> Self {
-                    let mut bytes = [0u8; size_of::<$t>()];
-                    copy_nonoverlapping(
-                        reader.ptr.offset(offset_in_bytes),
-                        bytes.as_mut_ptr(),
-                        size_of::<$t>()
-                    );
-                    <$t>::from_le_bytes(bytes)
-                }
-            }
-        )*
-    };
-}
-
-impl_read_little_endian_float!(f32, f64);
 
 #[cfg(test)]
 mod tests {
@@ -244,7 +134,7 @@ mod tests {
     fn little_endian_reader_int() {
         let data: [u8; 8] = [0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08]; // little-endian for 0x0807060504030201u64
         let mut reader = unsafe { LittleEndianReader::new(data.as_ptr()) };
-        let value: u64 = unsafe { reader.read() };
+        let value: u64 = unsafe { reader.read_u64() };
         assert_eq!(value, 0x0807060504030201);
     }
 
@@ -253,30 +143,18 @@ mod tests {
         let data: [u8; 12] = [
             0x01, 0x02, 0x03, 0x04, // 0x04030201u32
             0xAA, 0xBB, 0xCC, 0xDD, // offset part
-            0x05, 0x06, 0x07, 0x08, // 0x08070605u32
+            0xDB, 0x0F, 0x49, 0x40, // little-endian for 3.1415927f32
         ];
         let mut reader = unsafe { LittleEndianReader::new(data.as_ptr()) };
-        let value: u32 = unsafe { reader.read_at_offset(8) };
-        assert_eq!(value, 0x08070605);
+        let value: f32 = unsafe { reader.read_f32_at_offset(8) };
+        assert!((value - f32::consts::PI).abs() < f32::EPSILON);
     }
 
     #[test]
     fn little_endian_reader_float() {
         let data: [u8; 4] = [0xDB, 0x0F, 0x49, 0x40]; // little-endian for 3.1415927f32
         let mut reader = unsafe { LittleEndianReader::new(data.as_ptr()) };
-        let value: f32 = unsafe { reader.read() };
-        assert!((value - f32::consts::PI).abs() < f32::EPSILON); // Compare with tolerance for floating-point values
-    }
-
-    #[test]
-    fn little_endian_reader_at_offset_float() {
-        let data: [u8; 12] = [
-            0x01, 0x02, 0x03, 0x04, // 0x04030201u32
-            0xAA, 0xBB, 0xCC, 0xDD, // offset part
-            0xDB, 0x0F, 0x49, 0x40, // little-endian for 3.1415927f32
-        ];
-        let mut reader = unsafe { LittleEndianReader::new(data.as_ptr()) };
-        let value: f32 = unsafe { reader.read_at_offset(8) };
+        let value: f32 = unsafe { reader.read_f32() };
         assert!((value - f32::consts::PI).abs() < f32::EPSILON);
     }
 }
