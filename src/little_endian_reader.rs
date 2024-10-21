@@ -1,4 +1,4 @@
-use crate::EndianReaderTrait;
+use crate::EndianReader;
 use core::mem::size_of;
 use core::ptr::{copy_nonoverlapping, read_unaligned};
 use paste::paste;
@@ -112,7 +112,7 @@ macro_rules! define_little_endian_float_read_methods {
     };
 }
 
-impl EndianReaderTrait for LittleEndianReader {
+impl EndianReader for LittleEndianReader {
     unsafe fn read_bytes(&mut self, data: &mut [u8]) {
         self.read_bytes(data)
     }

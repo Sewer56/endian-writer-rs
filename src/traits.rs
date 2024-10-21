@@ -52,8 +52,114 @@ macro_rules! define_read_methods {
     };
 }
 
+/// A trait for types that can be serialized using an [`EndianWriter`].
+///
+/// Implement this trait for any type that you want to serialize with an [`EndianWriter`].
+///
+/// # Example
+///
+/// ```rust
+/// use endian_writer::{EndianWriter, LittleEndianWriter, BigEndianWriter, EndianSerializable};
+///
+/// struct MyStruct {
+///     a: u32,
+///     b: u16,
+/// }
+///
+/// impl EndianSerializable for MyStruct {
+///     fn serialize<W: EndianWriter>(&self, writer: &mut W) {
+///         unsafe {
+///             // Write fields at specific offsets
+///             writer.write_u32_at_offset(self.a, 0);
+///             writer.write_u16_at_offset(self.b, 4);
+///             // Advance the pointer after writing all fields
+///             writer.seek(6 as isize);
+///         }
+///     }
+/// }
+/// ```
+pub trait EndianSerializable {
+    /// Serializes the object using the provided [`EndianWriter`].
+    ///
+    /// # Parameters
+    ///
+    /// * `writer`: A mutable reference to an object implementing [`EndianWriter`].
+    ///
+    /// # Safety
+    ///
+    /// This method is unsafe because it involves writing directly to memory without bounds checking.
+    unsafe fn serialize<W: EndianWriter>(&self, writer: &mut W);
+}
+
+/// A trait for types that can be deserialized using an [`EndianReader`].
+///
+/// Implement this trait for any type that you want to deserialize with an [`EndianReader`].
+///
+/// # Example
+///
+/// ```rust
+/// use endian_writer::{EndianReader, LittleEndianReader, BigEndianReader, EndianDeserializable};
+///
+/// struct MyStruct {
+///     a: u32,
+///     b: u16,
+/// }
+///
+/// impl EndianDeserializable for MyStruct {
+///     fn deserialize<R: EndianReader>(reader: &mut R) -> Self {
+///         unsafe {
+///             // Read fields from specific offsets
+///             let a = reader.read_u32_at_offset(0);
+///             let b = reader.read_u16_at_offset(4);
+///             // Advance the pointer after reading all fields
+///             reader.seek(6 as isize);
+///             MyStruct { a, b }
+///         }
+///     }
+/// }
+/// ```
+pub trait EndianDeserializable: Sized {
+    /// Deserializes the object using the provided [`EndianReader`].
+    ///
+    /// # Parameters
+    ///
+    /// * `reader`: A mutable reference to an object implementing [`EndianReader`].
+    ///
+    /// # Returns
+    ///
+    /// An instance of the implementing type.
+    ///
+    /// # Safety
+    ///
+    /// This method is unsafe because it involves reading directly from memory without bounds checking.
+    unsafe fn deserialize<R: EndianReader>(reader: &mut R) -> Self;
+}
+
 /// A trait for endian writers to allow interchangeable usage.
-pub trait EndianWriterTrait {
+///
+/// # Example
+///
+/// ```rust
+/// use endian_writer::{EndianWriter, LittleEndianWriter, BigEndianWriter, EndianSerializable};
+///
+/// struct MyStruct {
+///     a: u32,
+///     b: u16,
+/// }
+///
+/// impl EndianSerializable for MyStruct {
+///     fn serialize<W: EndianWriter>(&self, writer: &mut W) {
+///         unsafe {
+///             // Write fields at specific offsets
+///             writer.write_u32_at_offset(self.a, 0);
+///             writer.write_u16_at_offset(self.b, 4);
+///             // Advance the pointer after writing all fields
+///             writer.seek(6 as isize);
+///         }
+///     }
+/// }
+/// ```
+pub trait EndianWriter {
     /// Writes a byte slice to the current position and advances the pointer.
     ///
     /// # Safety
@@ -93,7 +199,31 @@ pub trait EndianWriterTrait {
 }
 
 /// A trait for endian readers to allow interchangeable usage.
-pub trait EndianReaderTrait {
+///
+/// # Example
+///
+/// ```rust
+/// use endian_writer::{EndianReader, LittleEndianReader, BigEndianReader, EndianDeserializable};
+///
+/// struct MyStruct {
+///     a: u32,
+///     b: u16,
+/// }
+///
+/// impl EndianDeserializable for MyStruct {
+///     fn deserialize<R: EndianReader>(reader: &mut R) -> Self {
+///         unsafe {
+///             // Read fields from specific offsets
+///             let a = reader.read_u32_at_offset(0);
+///             let b = reader.read_u16_at_offset(4);
+///             // Advance the pointer after reading all fields
+///             reader.seek(MyStruct::size_in_bytes() as isize);
+///             MyStruct { a, b }
+///         }
+///     }
+/// }
+/// ```
+pub trait EndianReader {
     /// Reads a byte slice from the current position and advances the pointer.
     ///
     /// # Safety
@@ -131,30 +261,3 @@ pub trait EndianReaderTrait {
         f64 => read_f64
     );
 }
-
-/// A trait for types that can determine their serialized size in bytes.
-///
-/// **Note:** This size may differ from the native struct size due to custom serialization logic,
-/// such as bit-packing or padding.
-///
-/// Implementers must ensure that `size_in_bytes` accurately reflects the number of bytes
-/// the type occupies when serialized to a pointer.
-pub trait HasSize {
-    /// Returns the serialized size of the type in bytes.
-    fn size_in_bytes() -> usize;
-}
-
-macro_rules! impl_has_size {
-    ($($t:ty),*) => {
-        $(
-            impl HasSize for $t {
-                #[inline(always)]
-                fn size_in_bytes() -> usize {
-                    core::mem::size_of::<$t>()
-                }
-            }
-        )*
-    };
-}
-
-impl_has_size!(i8, u8, i16, u16, i32, u32, i64, u64, f32, f64);

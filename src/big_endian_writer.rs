@@ -1,4 +1,4 @@
-use crate::EndianWriterTrait;
+use crate::EndianWriter;
 use core::mem::size_of;
 use core::ptr::{copy_nonoverlapping, write_unaligned};
 use paste::paste;
@@ -110,7 +110,7 @@ macro_rules! define_big_endian_float_write_methods {
     };
 }
 
-impl EndianWriterTrait for BigEndianWriter {
+impl EndianWriter for BigEndianWriter {
     unsafe fn write_bytes(&mut self, data: &[u8]) {
         self.write_bytes(data)
     }

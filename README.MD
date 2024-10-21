@@ -25,127 +25,119 @@ endian_writer = "0.1.0"  # Replace with the actual version
 
 ### Basic Usage of `BigEndianReader` / `LittleEndianReader`
 
-The `BigEndianReader`/`LittleEndianReader` allow you to read data from a raw byte pointer in 
-a given endian.
+The `BigEndianReader` and `LittleEndianReader` allow you to read data from a raw byte pointer in 
+a specified endian format.
 
 ```rust
-use endian_writer::BigEndianReader;
-use endian_writer::ReadBigEndian;
+use endian_writer::{BigEndianReader, LittleEndianReader, EndianReader};
 use core::mem::size_of;
-use core::ptr::read_unaligned;
 
 fn main() {
-    let data: [u8; 8] = [0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01]; // Big-endian for 0x0807060504030201u64
-    let mut reader = unsafe { BigEndianReader::new(data.as_ptr()) };
+    // Example with BigEndianReader
+    let big_data: [u8; 8] = [0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01]; // Big-endian for 0x0807060504030201u64
+    let mut big_reader = unsafe { BigEndianReader::new(big_data.as_ptr()) };
 
     // Read a u64 value
-    let value: u64 = unsafe { reader.read::<u64>() };
-    assert_eq!(value, 0x0807060504030201);
-    println!("Read value: {:#x}", value);
+    let big_value: u64 = unsafe { big_reader.read_u64() };
+    assert_eq!(big_value, 0x0807060504030201);
+    println!("Big-endian read value: {:#x}", big_value);
+
+    // Example with LittleEndianReader
+    let little_data: [u8; 8] = [0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08]; // Little-endian for 0x0807060504030201u64
+    let mut little_reader = unsafe { LittleEndianReader::new(little_data.as_ptr()) };
+
+    // Read a u64 value
+    let little_value: u64 = unsafe { little_reader.read_u64() };
+    assert_eq!(little_value, 0x0807060504030201);
+    println!("Little-endian read value: {:#x}", little_value);
 }
 ```
 
 ### Basic Usage of `BigEndianWriter` / `LittleEndianWriter`
 
-The `BigEndianWriter`/`LittleEndianWriter` allows you to write data to a raw byte pointer in
-a given endian.
+The `BigEndianWriter` and `LittleEndianWriter` allow you to write data to a raw byte pointer in
+a specified endian format.
 
 ```rust
-use endian_writer::BigEndianWriter;
-use endian_writer::WriteBigEndian;
+use endian_writer::{BigEndianWriter, LittleEndianWriter, EndianWriter};
 use core::mem::size_of;
-use core::ptr::write_unaligned;
 
 fn main() {
-    let mut data: [u8; 8] = [0; 8];
-    let mut writer = unsafe { BigEndianWriter::new(data.as_mut_ptr()) };
+    // Example with BigEndianWriter
+    let mut big_data: [u8; 8] = [0; 8];
+    let mut big_writer = unsafe { BigEndianWriter::new(big_data.as_mut_ptr()) };
 
     // Write a u64 value
     unsafe {
-        writer.write(0x0807060504030201u64);
+        big_writer.write_u64(0x0807060504030201u64);
     }
 
-    assert_eq!(data, [0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01]);
-    println!("Written data: {:?}", data);
+    assert_eq!(big_data, [0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01]); // Big-endian for 0x0807060504030201u64
+    println!("Big-endian written data: {:?}", big_data);
+
+    // Example with LittleEndianWriter
+    let mut little_data: [u8; 8] = [0; 8];
+    let mut little_writer = unsafe { LittleEndianWriter::new(little_data.as_mut_ptr()) };
+
+    // Write a u64 value
+    unsafe {
+        little_writer.write_u64(0x0807060504030201u64);
+    }
+
+    assert_eq!(little_data, [0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08]); // Little-endian for 0x0807060504030201u64
+    println!("Little-endian written data: {:?}", little_data);
 }
 ```
 
 ### Interchangeable Readers/Writers via Traits
 
-The Readers and Writers are interchangeable through the use of traits:
+Readers and writers are interchangeable through the use of traits:
 
-- Readers implement the `EndianReaderTrait`.
-- Writers implement the `EndianWriterTrait`.
+- Readers implement the `EndianReader` trait.
+- Writers implement the `EndianWriter` trait.
+- Types that can be serialized/deserialized implement `EndianSerializable` and `EndianDeserializable` respectively.
 
-```rust
-use endian_writer::{EndianReaderTrait, BigEndianReader, LittleEndianReader, ReadBigEndian, ReadLittleEndian};
-
-fn read_value<T: EndianReaderTrait + ReadBigEndian>(reader: &mut T) -> u32 {
-    unsafe { reader.read::<u32>() }
-}
-
-fn main() {
-    // Using BigEndianReader
-    let big_data: [u8; 4] = [0x00, 0x00, 0x00, 0x2A]; // Big-endian for 42u32
-    let mut big_reader = unsafe { BigEndianReader::new(big_data.as_ptr()) };
-    let big_value = read_value(&mut big_reader);
-    assert_eq!(big_value, 42);
-
-    // Using LittleEndianReader
-    let little_data: [u8; 4] = [0x2A, 0x00, 0x00, 0x00]; // Little-endian for 42u32
-    let mut little_reader = unsafe { LittleEndianReader::new(little_data.as_ptr()) };
-    let little_value = read_value(&mut little_reader);
-    assert_eq!(little_value, 42);
-
-    println!("Big-endian read value: {}", big_value);
-    println!("Little-endian read value: {}", little_value);
-}
-```
-
-### Recommended Pattern for Serializing Structures
-
-When serializing structures, it's efficient to use `write_at_offset` for writing multiple fields 
-without repeatedly advancing the pointer.
-
-This reduces the number of instructions and improves performance.
-After writing all fields, you can advance the pointer once using `seek`.
+This allows you to write generic functions that can operate on any endian-specific reader or writer.
 
 ```rust
-use endian_writer::{LittleEndianWriter, BigEndianWriter, WriteLittleEndian, WriteBigEndian};
-use endian_writer::traits::HasSize;
-use core::ptr::write_unaligned;
+use endian_writer::{
+    EndianWriter, EndianReader, LittleEndianWriter, LittleEndianReader, BigEndianWriter, BigEndianReader,
+    EndianSerializable, EndianDeserializable
+};
 
-// Define your structure
 struct FileEntry {
     hash: u64,
     data: u64,
 }
 
-// Implement `HasSize` to specify the serialized size
-// Note that it is the serialized size, not struct size.
-impl HasSize for FileEntry {
-    fn size_in_bytes() -> usize {
-        16 // 8 bytes for `hash` + 8 bytes for `data`
+/// Allows you to serialize with either LittleEndianWriter or BigEndianWriter
+impl EndianSerializable for FileEntry {
+    fn serialize<W: EndianWriter>(&self, writer: &mut W) {
+        unsafe {
+            // Write fields at specific offsets
+            writer.write_u64_at_offset(self.hash, 0);
+            writer.write_u64_at_offset(self.data, 8);
+            // Advance the pointer after writing all fields
+            writer.seek(16 as isize);
+        }
     }
 }
 
-// Implement `WriteLittleEndianAtOffset` for `FileEntry`
-impl WriteLittleEndianAtOffset for FileEntry {
-    unsafe fn write_at_offset_le(self, writer: &mut LittleEndianWriter, offset_in_bytes: isize) {
-        writer.write_at_offset::<u64>(self.hash, offset_in_bytes);
-        writer.write_at_offset::<u64>(self.data, offset_in_bytes + 8);
+/// Allows you to deserialize with either LittleEndianReader or BigEndianReader
+impl EndianDeserializable for FileEntry {
+    fn deserialize<R: EndianReader>(reader: &mut R) -> Self {
+        unsafe {
+            // Read fields from specific offsets
+            let hash = reader.read_u64_at_offset(0);
+            let data = reader.read_u64_at_offset(8);
+            // Advance the pointer after reading all fields
+            reader.seek(16 as isize);
+            FileEntry { hash, data }
+        }
     }
 }
 
-// Implement `WriteBigEndianAtOffset` for `FileEntry`
-impl WriteBigEndianAtOffset for FileEntry {
-    unsafe fn write_at_offset_be(self, writer: &mut BigEndianWriter, offset_in_bytes: isize) {
-        writer.write_at_offset::<u64>(self.hash, offset_in_bytes);
-        writer.write_at_offset::<u64>(self.data, offset_in_bytes + 8);
-    }
-}
-
-fn main() {
+fn example_serialize_deserialize() {
     let entry = FileEntry {
         hash: 0x123456789ABCDEF0,
         data: 0x0FEDCBA987654321,
@@ -154,9 +146,7 @@ fn main() {
     // Serialize using LittleEndianWriter
     let mut buffer_le: [u8; 16] = [0; 16];
     let mut writer_le = unsafe { LittleEndianWriter::new(buffer_le.as_mut_ptr()) };
-    unsafe {
-        writer_le.write(entry);
-    }
+    entry.serialize(&mut writer_le);
 
     assert_eq!(
         buffer_le,
@@ -165,15 +155,12 @@ fn main() {
             0x21, 0x43, 0x65, 0x87, 0xA9, 0xCB, 0xED, 0x0F  // data in little-endian
         ]
     );
-
     println!("Serialized buffer (Little Endian): {:?}", buffer_le);
 
     // Serialize using BigEndianWriter
     let mut buffer_be: [u8; 16] = [0; 16];
     let mut writer_be = unsafe { BigEndianWriter::new(buffer_be.as_mut_ptr()) };
-    unsafe {
-        writer_be.write(entry);
-    }
+    entry.serialize(&mut writer_be);
 
     assert_eq!(
         buffer_be,
@@ -182,10 +169,37 @@ fn main() {
             0x0F, 0xED, 0xCB, 0xA9, 0x87, 0x65, 0x43, 0x21  // data in big-endian
         ]
     );
-
     println!("Serialized buffer (Big Endian): {:?}", buffer_be);
+
+    // Deserialize using LittleEndianReader
+    let mut reader_le = unsafe { LittleEndianReader::new(buffer_le.as_ptr()) };
+    let deserialized_le = unsafe { FileEntry::deserialize(&mut reader_le) };
+    assert_eq!(deserialized_le.hash, entry.hash);
+    assert_eq!(deserialized_le.data, entry.data);
+    println!(
+        "Deserialized entry (Little Endian): hash={:#x}, data={:#x}",
+        deserialized_le.hash, deserialized_le.data
+    );
+
+    // Deserialize using BigEndianReader
+    let mut reader_be = unsafe { BigEndianReader::new(buffer_be.as_ptr()) };
+    let deserialized_be = unsafe { FileEntry::deserialize(&mut reader_be) };
+    assert_eq!(deserialized_be.hash, entry.hash);
+    assert_eq!(deserialized_be.data, entry.data);
+    println!(
+        "Deserialized entry (Big Endian): hash={:#x}, data={:#x}",
+        deserialized_be.hash, deserialized_be.data
+    );
 }
 ```
+
+#### Performance Note
+
+As seen in the code above, it's more efficient to use multiple `write_*_at_offset` or `read_*_at_offset`
+methods which don't advance the read pointer. When all fields are read, use a `seek` to advance the pointer.
+
+This approach makes it an easier job for the compiler to optimize the code, and is also faster in
+debug builds.
 
 ## Development
 
