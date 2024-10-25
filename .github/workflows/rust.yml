@@ -9,16 +9,23 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
-
-
 jobs:
   build-and-test:
     strategy:
       matrix:
         include:
           - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
+            target: x86_64-unknown-linux-gnu # 64-bit Little Endian
             use-cross: false
+          - os: ubuntu-latest
+            target: i686-unknown-linux-gnu # 32-bit Little Endian
+            use-cross: false
+          - os: ubuntu-latest
+            target: powerpc-unknown-linux-gnu # 32-bit Big Endian
+            use-cross: true
+          - os: ubuntu-latest
+            target: powerpc64-unknown-linux-gnu # 64-bit Big Endian
+            use-cross: true
 
     runs-on: ${{ matrix.os }}
 
