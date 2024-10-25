@@ -9,8 +9,11 @@ git clone -c core.symlinks=true https://github.com/Sewer56/endian-writer.git
 ```
 
 ***Install Rust:***
-- Install the [Rust Toolchain.][rust-toolchain]***Setup IDE***
+- Install the [Rust Toolchain.][rust-toolchain]
+
+***Setup IDE:***
 - This repository is fully with VSCode. [Guidance below](#visual-studio-code-integration).
+
 ### Visual Studio Code Integration
 
 `Code`/`VSCode` is the de-facto Rust development environment.  
