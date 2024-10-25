@@ -1,8 +1,8 @@
 # endian-writer
 
-[![Crates.io](https://img.shields.io/crates/v/endian-writer.svg)](https://crates.io/crates/endian-writer)
-[![Docs.rs](https://docs.rs/endian-writer/badge.svg)](https://docs.rs/endian-writer)
-[![CI](https://github.com/Sewer56/endian-writer/actions/workflows/rust.yml/badge.svg)](https://github.com/Sewer56/endian-writer/actions)
+[![Crates.io](https://img.shields.io/crates/v/endian-writer-rs.svg)](https://crates.io/crates/endian-writer-rs)
+[![Docs.rs](https://docs.rs/endian-writer-rs/badge.svg)](https://docs.rs/endian-writer-rs)
+[![CI](https://github.com/Sewer56/endian-writer-rs/actions/workflows/rust.yml/badge.svg)](https://github.com/Sewer56/endian-writer-rs/actions)
 
 ## About
 
