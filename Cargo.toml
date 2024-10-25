@@ -1,6 +1,6 @@
 [package]
 name = "endian-writer"
-version = "0.1.0"
+version = "1.0.0"
 edition = "2021"
 description = "[no_std] Methods for efficient reading and writing of structures to raw pointers in a stream-like fashion."
 repository = "https://github.com/Sewer56/endian-writer"
