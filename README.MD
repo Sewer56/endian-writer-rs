@@ -91,14 +91,14 @@ Readers and writers are interchangeable through the use of traits:
 
 - Readers implement the `EndianReader` trait.
 - Writers implement the `EndianWriter` trait.
-- Types that can be serialized/deserialized implement `EndianSerializable` and `EndianDeserializable` respectively.
+- Types that can be serialized/deserialized implement `EndianWritable` and `EndianReadable` respectively.
 
 This allows you to write generic functions that can operate on any endian-specific reader or writer.
 
 ```rust
 use endian_writer::{
     EndianWriter, EndianReader, LittleEndianWriter, LittleEndianReader, BigEndianWriter, BigEndianReader,
-    EndianSerializable, EndianDeserializable
+    EndianWritable, EndianReadable
 };
 
 struct FileEntry {
@@ -107,7 +107,7 @@ struct FileEntry {
 }
 
 /// Allows you to serialize with either LittleEndianWriter or BigEndianWriter
-impl EndianSerializable for FileEntry {
+impl EndianWritable for FileEntry {
     unsafe fn serialize<W: EndianWriter>(&self, writer: &mut W) {
         // Write fields at specific offsets
         writer.write_u64_at(self.hash, 0);
@@ -118,7 +118,7 @@ impl EndianSerializable for FileEntry {
 }
 
 /// Allows you to deserialize with either LittleEndianReader or BigEndianReader
-impl EndianDeserializable for FileEntry {
+impl EndianReadable for FileEntry {
     unsafe fn deserialize<R: EndianReader>(reader: &mut R) -> Self {
         // Read fields from specific offsets
         let hash = reader.read_u64_at(0);

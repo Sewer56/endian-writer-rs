@@ -59,15 +59,15 @@ macro_rules! define_read_methods {
 /// # Example
 ///
 /// ```rust
-/// use endian_writer::{EndianWriter, LittleEndianWriter, BigEndianWriter, EndianSerializable};
+/// use endian_writer::{EndianWriter, LittleEndianWriter, BigEndianWriter, EndianWritable};
 ///
 /// struct MyStruct {
 ///     a: u32,
 ///     b: u16,
 /// }
 ///
-/// impl EndianSerializable for MyStruct {
-///     unsafe fn serialize<W: EndianWriter>(&self, writer: &mut W) {
+/// impl EndianWritable for MyStruct {
+///     unsafe fn write<W: EndianWriter>(&self, writer: &mut W) {
 ///         // Write fields at specific offsets
 ///         writer.write_u32_at(self.a, 0);
 ///         writer.write_u16_at(self.b, 4);
@@ -76,7 +76,7 @@ macro_rules! define_read_methods {
 ///     }
 /// }
 /// ```
-pub trait EndianSerializable {
+pub trait EndianWritable {
     /// Serializes the object using the provided [`EndianWriter`].
     ///
     /// # Parameters
@@ -86,7 +86,7 @@ pub trait EndianSerializable {
     /// # Safety
     ///
     /// This method is unsafe because it involves writing directly to memory without bounds checking.
-    unsafe fn serialize<W: EndianWriter>(&self, writer: &mut W);
+    unsafe fn write<W: EndianWriter>(&self, writer: &mut W);
 }
 
 /// A trait for types that can be deserialized using an [`EndianReader`].
@@ -96,15 +96,15 @@ pub trait EndianSerializable {
 /// # Example
 ///
 /// ```rust
-/// use endian_writer::{EndianReader, LittleEndianReader, BigEndianReader, EndianDeserializable};
+/// use endian_writer::{EndianReader, LittleEndianReader, BigEndianReader, EndianReadable};
 ///
 /// struct MyStruct {
 ///     a: u32,
 ///     b: u16,
 /// }
 ///
-/// impl EndianDeserializable for MyStruct {
-///     unsafe fn deserialize<R: EndianReader>(reader: &mut R) -> Self {
+/// impl EndianReadable for MyStruct {
+///     unsafe fn read<R: EndianReader>(reader: &mut R) -> Self {
 ///         // Read fields from specific offsets
 ///         let a = reader.read_u32_at(0);
 ///         let b = reader.read_u16_at(4);
@@ -114,7 +114,7 @@ pub trait EndianSerializable {
 ///     }
 /// }
 /// ```
-pub trait EndianDeserializable: Sized {
+pub trait EndianReadable: Sized {
     /// Deserializes the object using the provided [`EndianReader`].
     ///
     /// # Parameters
@@ -128,7 +128,7 @@ pub trait EndianDeserializable: Sized {
     /// # Safety
     ///
     /// This method is unsafe because it involves reading directly from memory without bounds checking.
-    unsafe fn deserialize<R: EndianReader>(reader: &mut R) -> Self;
+    unsafe fn read<R: EndianReader>(reader: &mut R) -> Self;
 }
 
 /// A trait for endian writers to allow interchangeable usage.
@@ -136,15 +136,15 @@ pub trait EndianDeserializable: Sized {
 /// # Example
 ///
 /// ```rust
-/// use endian_writer::{EndianWriter, LittleEndianWriter, BigEndianWriter, EndianSerializable};
+/// use endian_writer::{EndianWriter, LittleEndianWriter, BigEndianWriter, EndianWritable};
 ///
 /// struct MyStruct {
 ///     a: u32,
 ///     b: u16,
 /// }
 ///
-/// impl EndianSerializable for MyStruct {
-///     unsafe fn serialize<W: EndianWriter>(&self, writer: &mut W) {
+/// impl EndianWritable for MyStruct {
+///     unsafe fn write<W: EndianWriter>(&self, writer: &mut W) {
 ///         // Write fields at specific offsets
 ///         writer.write_u32_at(self.a, 0);
 ///         writer.write_u16_at(self.b, 4);
@@ -154,7 +154,7 @@ pub trait EndianDeserializable: Sized {
 /// }
 /// ```
 ///
-/// This trait can also be used to write any type that implements [`EndianSerializable`] with the
+/// This trait can also be used to write any type that implements [`EndianWritable`] with the
 /// [`EndianWriter::write`] method.
 ///
 /// ```ignore
@@ -192,7 +192,7 @@ pub trait EndianWriter {
 
     define_write_methods!(i8, u8, i16, u16, i32, u32, i64, u64, f32, f64);
 
-    /// Writes a value of type `T` that implements [`EndianSerializable`].
+    /// Writes a value of type `T` that implements [`EndianWritable`].
     ///
     /// # Parameters
     ///
@@ -203,11 +203,11 @@ pub trait EndianWriter {
     /// This method is unsafe because it invokes `serialize`, which involves writing
     /// directly to memory without bounds checking. The caller must ensure that
     /// there's enough space to serialize the value.
-    unsafe fn write<T: EndianSerializable>(&mut self, value: &T)
+    unsafe fn write<T: EndianWritable>(&mut self, value: &T)
     where
         Self: Sized,
     {
-        value.serialize(self)
+        value.write(self)
     }
 }
 
@@ -216,15 +216,15 @@ pub trait EndianWriter {
 /// # Example
 ///
 /// ```rust
-/// use endian_writer::{EndianReader, LittleEndianReader, BigEndianReader, EndianDeserializable};
+/// use endian_writer::{EndianReader, LittleEndianReader, BigEndianReader, EndianReadable};
 ///
 /// struct MyStruct {
 ///     a: u32,
 ///     b: u16,
 /// }
 ///
-/// impl EndianDeserializable for MyStruct {
-///     unsafe fn deserialize<R: EndianReader>(reader: &mut R) -> Self {
+/// impl EndianReadable for MyStruct {
+///     unsafe fn read<R: EndianReader>(reader: &mut R) -> Self {
 ///         // Read fields from specific offsets
 ///         let a = reader.read_u32_at(0);
 ///         let b = reader.read_u16_at(4);
@@ -235,7 +235,7 @@ pub trait EndianWriter {
 /// }
 /// ```
 ///
-/// This trait can also be used to read any type that implements [`EndianDeserializable`] with the
+/// This trait can also be used to read any type that implements [`EndianReadable`] with the
 /// [`EndianReader::read`] method.
 ///
 /// ```ignore
@@ -270,7 +270,7 @@ pub trait EndianReader {
 
     define_read_methods!(i8, u8, i16, u16, i32, u32, i64, u64, f32, f64);
 
-    /// Reads a value of type `T` that implements [`EndianDeserializable`].
+    /// Reads a value of type `T` that implements [`EndianReadable`].
     ///
     /// # Returns
     ///
@@ -281,39 +281,39 @@ pub trait EndianReader {
     /// This method is unsafe because it invokes `deserialize`, which involves reading
     /// directly from memory without bounds checking. The caller must ensure that
     /// there's enough data to deserialize the value.
-    unsafe fn read<T: EndianDeserializable>(&mut self) -> T
+    unsafe fn read<T: EndianReadable>(&mut self) -> T
     where
         Self: Sized,
     {
-        T::deserialize(self)
+        T::read(self)
     }
 }
 
-/// Implementations of `EndianSerializable` and `EndianDeserializable` for base types.
+/// Implementations of `EndianWritable` and `EndianReadable` for base types.
 macro_rules! impl_endian_traits_for_base_types {
     ($($type:ty => $write_fn:ident, $read_fn:ident),*) => {
         $(
             paste! {
-                /// Implementation of `EndianSerializable` for [$type].
-                impl EndianSerializable for $type {
+                /// Implementation of `EndianWritable` for [$type].
+                impl EndianWritable for $type {
                     /// Serializes the value using the provided [`EndianWriter`].
                     ///
                     /// # Safety
                     ///
                     /// This method is unsafe because it writes directly to memory without bounds checking.
-                    unsafe fn serialize<W: EndianWriter>(&self, writer: &mut W) {
+                    unsafe fn write<W: EndianWriter>(&self, writer: &mut W) {
                         writer.$write_fn(*self);
                     }
                 }
 
-                /// Implementation of `EndianDeserializable` for [$type].
-                impl EndianDeserializable for $type {
+                /// Implementation of `EndianReadable` for [$type].
+                impl EndianReadable for $type {
                     /// Deserializes the value using the provided [`EndianReader`].
                     ///
                     /// # Safety
                     ///
                     /// This method is unsafe because it reads directly from memory without bounds checking.
-                    unsafe fn deserialize<R: EndianReader>(reader: &mut R) -> Self {
+                    unsafe fn read<R: EndianReader>(reader: &mut R) -> Self {
                         reader.$read_fn()
                     }
                 }
@@ -349,26 +349,26 @@ mod tests {
         c: f32,
     }
 
-    impl EndianSerializable for TestStruct {
+    impl EndianWritable for TestStruct {
         /// Serializes `TestStruct` using the provided `EndianWriter`.
         ///
         /// # Safety
         ///
         /// The method is unsafe because it writes directly to memory without bounds checking.
-        unsafe fn serialize<W: EndianWriter>(&self, writer: &mut W) {
+        unsafe fn write<W: EndianWriter>(&self, writer: &mut W) {
             writer.write_u32(self.a);
             writer.write_u16(self.b);
             writer.write_f32(self.c);
         }
     }
 
-    impl EndianDeserializable for TestStruct {
+    impl EndianReadable for TestStruct {
         /// Deserializes `TestStruct` using the provided `EndianReader`.
         ///
         /// # Safety
         ///
         /// The method is unsafe because it reads directly from memory without bounds checking.
-        unsafe fn deserialize<R: EndianReader>(reader: &mut R) -> Self {
+        unsafe fn read<R: EndianReader>(reader: &mut R) -> Self {
             let a = reader.read_u32();
             let b = reader.read_u16();
             let c = reader.read_f32();
