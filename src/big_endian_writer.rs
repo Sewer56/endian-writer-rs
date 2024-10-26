@@ -73,9 +73,9 @@ macro_rules! define_big_endian_write_methods {
                 ///
                 /// * `value`: The value to write.
                 /// * `offset`: The offset in bytes from the current position.
-                unsafe fn [<write_ $type _at_offset>](&mut self, value: $type, offset: isize) {
-                    let ptr_at_offset = self.ptr.offset(offset);
-                    write_unaligned(ptr_at_offset as *mut $type, value.to_be());
+                unsafe fn [<write_ $type _at>](&mut self, value: $type, offset: isize) {
+                    let ptr_at = self.ptr.offset(offset);
+                    write_unaligned(ptr_at as *mut $type, value.to_be());
                 }
             }
         )*
@@ -100,10 +100,10 @@ macro_rules! define_big_endian_float_write_methods {
                 ///
                 /// * `value`: The value to write.
                 /// * `offset`: The offset in bytes from the current position.
-                unsafe fn [<write_ $type _at_offset>](&mut self, value: $type, offset: isize) {
-                    let ptr_at_offset = self.ptr.offset(offset);
+                unsafe fn [<write_ $type _at>](&mut self, value: $type, offset: isize) {
+                    let ptr_at = self.ptr.offset(offset);
                     let bytes = value.to_be_bytes();
-                    copy_nonoverlapping(bytes.as_ptr(), ptr_at_offset, size_of::<$type>());
+                    copy_nonoverlapping(bytes.as_ptr(), ptr_at, size_of::<$type>());
                 }
             }
         )*
@@ -138,11 +138,11 @@ mod tests {
     }
 
     #[test]
-    fn big_endian_writer_at_offset_int() {
+    fn big_endian_writer_at_int() {
         let mut data: [u8; 12] = [0; 12];
         let mut writer = unsafe { BigEndianWriter::new(data.as_mut_ptr()) };
         unsafe {
-            writer.write_i32_at_offset(0x08070605i32, 8);
+            writer.write_i32_at(0x08070605i32, 8);
         } // Write at offset 8
         assert_eq!(data[8..12], [0x08, 0x07, 0x06, 0x05]); // Check only offset part
     }
@@ -158,11 +158,11 @@ mod tests {
     }
 
     #[test]
-    fn big_endian_writer_at_offset_float() {
+    fn big_endian_writer_at_float() {
         let mut data: [u8; 12] = [0; 12];
         let mut writer = unsafe { BigEndianWriter::new(data.as_mut_ptr()) };
         unsafe {
-            writer.write_f32_at_offset(core::f32::consts::PI, 8);
+            writer.write_f32_at(core::f32::consts::PI, 8);
         } // Write at offset 8
         assert_eq!(data[8..12], [0x40, 0x49, 0x0F, 0xDB]); // Check only offset part
     }

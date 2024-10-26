@@ -2,14 +2,14 @@ use paste::paste;
 
 // Macro to generate write methods for base types
 macro_rules! define_write_methods {
-    ($($type:ty => $method:ident),*) => {
+    ($($type:ty),*) => {
         $(
             paste! {
                 #[doc = concat!("Writes a [`", stringify!($type), "`] to the current position and advances the pointer.")]
                 /// # Safety
                 ///
                 /// This method is unsafe because it writes directly to memory without bounds checking.
-                unsafe fn $method(&mut self, value: $type);
+                unsafe fn [<write_ $type>](&mut self, value: $type);
 
                 #[doc = concat!("Writes a [`", stringify!($type), "`] at the specified offset without advancing the pointer.")]
                 ///
@@ -20,7 +20,7 @@ macro_rules! define_write_methods {
                 /// # Safety
                 ///
                 /// This method is unsafe because it writes directly to memory without bounds checking.
-                unsafe fn [<$method _at_offset>](&mut self, value: $type, offset: isize);
+                unsafe fn [<write_ $type _at>](&mut self, value: $type, offset: isize);
             }
         )*
     };
@@ -28,14 +28,14 @@ macro_rules! define_write_methods {
 
 // Macro to generate read methods for base types
 macro_rules! define_read_methods {
-    ($($type:ty => $method:ident),*) => {
+    ($($type:ty),*) => {
         $(
             paste! {
                 #[doc = concat!("Reads a [`", stringify!($type), "`] from the current position and advances the pointer.")]
                 /// # Safety
                 ///
                 /// This method is unsafe because it reads directly from memory without bounds checking.
-                unsafe fn $method(&mut self) -> $type;
+                unsafe fn [<read_ $type>](&mut self) -> $type;
 
                 #[doc = concat!("Reads a [`", stringify!($type), "`] at the specified offset without advancing the pointer.")]
                 ///
@@ -46,7 +46,7 @@ macro_rules! define_read_methods {
                 /// # Safety
                 ///
                 /// This method is unsafe because it reads directly from memory without bounds checking.
-                unsafe fn [<$method _at_offset>](&mut self, offset: isize) -> $type;
+                unsafe fn [<read_ $type _at>](&mut self, offset: isize) -> $type;
             }
         )*
     };
@@ -69,8 +69,8 @@ macro_rules! define_read_methods {
 /// impl EndianSerializable for MyStruct {
 ///     unsafe fn serialize<W: EndianWriter>(&self, writer: &mut W) {
 ///         // Write fields at specific offsets
-///         writer.write_u32_at_offset(self.a, 0);
-///         writer.write_u16_at_offset(self.b, 4);
+///         writer.write_u32_at(self.a, 0);
+///         writer.write_u16_at(self.b, 4);
 ///         // Advance the pointer after writing all fields
 ///         writer.seek(6 as isize);
 ///     }
@@ -106,8 +106,8 @@ pub trait EndianSerializable {
 /// impl EndianDeserializable for MyStruct {
 ///     unsafe fn deserialize<R: EndianReader>(reader: &mut R) -> Self {
 ///         // Read fields from specific offsets
-///         let a = reader.read_u32_at_offset(0);
-///         let b = reader.read_u16_at_offset(4);
+///         let a = reader.read_u32_at(0);
+///         let b = reader.read_u16_at(4);
 ///         // Advance the pointer after reading all fields
 ///         reader.seek(6 as isize);
 ///         MyStruct { a, b }
@@ -146,8 +146,8 @@ pub trait EndianDeserializable: Sized {
 /// impl EndianSerializable for MyStruct {
 ///     unsafe fn serialize<W: EndianWriter>(&self, writer: &mut W) {
 ///         // Write fields at specific offsets
-///         writer.write_u32_at_offset(self.a, 0);
-///         writer.write_u16_at_offset(self.b, 4);
+///         writer.write_u32_at(self.a, 0);
+///         writer.write_u16_at(self.b, 4);
 ///         // Advance the pointer after writing all fields
 ///         writer.seek(6 as isize);
 ///     }
@@ -190,18 +190,7 @@ pub trait EndianWriter {
     /// * `offset`: The number of bytes to advance the pointer.
     unsafe fn seek(&mut self, offset: isize);
 
-    define_write_methods!(
-        i8 => write_i8,
-        u8 => write_u8,
-        i16 => write_i16,
-        u16 => write_u16,
-        i32 => write_i32,
-        u32 => write_u32,
-        i64 => write_i64,
-        u64 => write_u64,
-        f32 => write_f32,
-        f64 => write_f64
-    );
+    define_write_methods!(i8, u8, i16, u16, i32, u32, i64, u64, f32, f64);
 
     /// Writes a value of type `T` that implements [`EndianSerializable`].
     ///
@@ -237,8 +226,8 @@ pub trait EndianWriter {
 /// impl EndianDeserializable for MyStruct {
 ///     unsafe fn deserialize<R: EndianReader>(reader: &mut R) -> Self {
 ///         // Read fields from specific offsets
-///         let a = reader.read_u32_at_offset(0);
-///         let b = reader.read_u16_at_offset(4);
+///         let a = reader.read_u32_at(0);
+///         let b = reader.read_u16_at(4);
 ///         // Advance the pointer after reading all fields
 ///         reader.seek(6 as isize);
 ///         MyStruct { a, b }
@@ -279,18 +268,7 @@ pub trait EndianReader {
     /// * `offset`: The number of bytes to advance the pointer.
     unsafe fn seek(&mut self, offset: isize);
 
-    define_read_methods!(
-        i8 => read_i8,
-        u8 => read_u8,
-        i16 => read_i16,
-        u16 => read_u16,
-        i32 => read_i32,
-        u32 => read_u32,
-        i64 => read_i64,
-        u64 => read_u64,
-        f32 => read_f32,
-        f64 => read_f64
-    );
+    define_read_methods!(i8, u8, i16, u16, i32, u32, i64, u64, f32, f64);
 
     /// Reads a value of type `T` that implements [`EndianDeserializable`].
     ///

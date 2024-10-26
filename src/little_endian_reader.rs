@@ -73,9 +73,9 @@ macro_rules! define_little_endian_read_methods {
                 /// # Parameters
                 ///
                 /// * `offset`: The offset in bytes from the current position.
-                unsafe fn [<read_ $type _at_offset>](&mut self, offset: isize) -> $type {
-                    let ptr_at_offset = self.ptr.offset(offset);
-                    let value = read_unaligned(ptr_at_offset as *const $type).to_le();
+                unsafe fn [<read_ $type _at>](&mut self, offset: isize) -> $type {
+                    let ptr_at = self.ptr.offset(offset);
+                    let value = read_unaligned(ptr_at as *const $type).to_le();
                     value
                 }
             }
@@ -101,10 +101,10 @@ macro_rules! define_little_endian_float_read_methods {
                 /// # Parameters
                 ///
                 /// * `offset`: The offset in bytes from the current position.
-                unsafe fn [<read_ $type:lower _at_offset>](&mut self, offset: isize) -> $type {
-                    let ptr_at_offset = self.ptr.offset(offset);
+                unsafe fn [<read_ $type:lower _at>](&mut self, offset: isize) -> $type {
+                    let ptr_at = self.ptr.offset(offset);
                     let mut bytes = [0u8; size_of::<$type>()];
-                    copy_nonoverlapping(ptr_at_offset, bytes.as_mut_ptr(), size_of::<$type>());
+                    copy_nonoverlapping(ptr_at, bytes.as_mut_ptr(), size_of::<$type>());
                     <$type>::from_le_bytes(bytes)
                 }
             }
@@ -139,14 +139,14 @@ mod tests {
     }
 
     #[test]
-    fn little_endian_reader_at_offset() {
+    fn little_endian_reader_at() {
         let data: [u8; 12] = [
             0x01, 0x02, 0x03, 0x04, // 0x04030201u32
             0xAA, 0xBB, 0xCC, 0xDD, // offset part
             0xDB, 0x0F, 0x49, 0x40, // little-endian for 3.1415927f32
         ];
         let mut reader = unsafe { LittleEndianReader::new(data.as_ptr()) };
-        let value: f32 = unsafe { reader.read_f32_at_offset(8) };
+        let value: f32 = unsafe { reader.read_f32_at(8) };
         assert!((value - f32::consts::PI).abs() < f32::EPSILON);
     }
 

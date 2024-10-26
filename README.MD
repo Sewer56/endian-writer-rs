@@ -110,8 +110,8 @@ struct FileEntry {
 impl EndianSerializable for FileEntry {
     unsafe fn serialize<W: EndianWriter>(&self, writer: &mut W) {
         // Write fields at specific offsets
-        writer.write_u64_at_offset(self.hash, 0);
-        writer.write_u64_at_offset(self.data, 8);
+        writer.write_u64_at(self.hash, 0);
+        writer.write_u64_at(self.data, 8);
         // Advance the pointer after writing all fields
         writer.seek(16 as isize);
     }
@@ -121,8 +121,8 @@ impl EndianSerializable for FileEntry {
 impl EndianDeserializable for FileEntry {
     unsafe fn deserialize<R: EndianReader>(reader: &mut R) -> Self {
         // Read fields from specific offsets
-        let hash = reader.read_u64_at_offset(0);
-        let data = reader.read_u64_at_offset(8);
+        let hash = reader.read_u64_at(0);
+        let data = reader.read_u64_at(8);
         // Advance the pointer after reading all fields
         reader.seek(16 as isize);
         FileEntry { hash, data }
@@ -187,7 +187,7 @@ unsafe fn example_serialize_deserialize() {
 
 #### Performance Note
 
-As seen in the code above, it's more efficient to use multiple `write_*_at_offset` or `read_*_at_offset`
+As seen in the code above, it's more efficient to use multiple `write_*_at` or `read_*_at`
 methods which don't advance the read pointer. When all fields are read, use a `seek` to advance the pointer.
 
 This approach makes it an easier job for the compiler to optimize the code, and is also faster in
