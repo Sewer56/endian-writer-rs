@@ -89,6 +89,41 @@ pub trait EndianWritable {
     unsafe fn write<W: EndianWriter>(&self, writer: &mut W);
 }
 
+/// A trait for types that can be serialized at specific offsets using an [`EndianWriter`].
+///
+/// Implement this trait for any type that you want to serialize with an [`EndianWriter`] at a specific offset.
+///
+/// # Example
+///
+/// ```rust
+/// use endian_writer::{EndianWriter, LittleEndianWriter, EndianWritableAt};
+///
+/// struct MyStruct {
+///     a: u32,
+///     b: u16,
+/// }
+///
+/// impl EndianWritableAt for MyStruct {
+///     unsafe fn write_at<W: EndianWriter>(&self, writer: &mut W, offset: isize) {
+///         writer.write_u32_at(self.a, offset);
+///         writer.write_u16_at(self.b, offset + 4);
+///     }
+/// }
+/// ```
+pub trait EndianWritableAt {
+    /// Serializes the object using the provided [`EndianWriter`] at the specified offset.
+    ///
+    /// # Parameters
+    ///
+    /// * `writer`: A mutable reference to an object implementing [`EndianWriter`].
+    /// * `offset`: The offset in bytes from the current position.
+    ///
+    /// # Safety
+    ///
+    /// This method is unsafe because it involves writing directly to memory without bounds checking.
+    unsafe fn write_at<W: EndianWriter>(&self, writer: &mut W, offset: isize);
+}
+
 /// A trait for types that can be deserialized using an [`EndianReader`].
 ///
 /// Implement this trait for any type that you want to deserialize with an [`EndianReader`].
@@ -129,6 +164,46 @@ pub trait EndianReadable: Sized {
     ///
     /// This method is unsafe because it involves reading directly from memory without bounds checking.
     unsafe fn read<R: EndianReader>(reader: &mut R) -> Self;
+}
+
+/// A trait for types that can be deserialized at specific offsets using an [`EndianReader`].
+///
+/// Implement this trait for any type that you want to deserialize with an [`EndianReader`] at a specific offset.
+///
+/// # Example
+///
+/// ```rust
+/// use endian_writer::{EndianReader, LittleEndianReader, EndianReadableAt};
+///
+/// struct MyStruct {
+///     a: u32,
+///     b: u16,
+/// }
+///
+/// impl EndianReadableAt for MyStruct {
+///     unsafe fn read_at<R: EndianReader>(reader: &mut R, offset: isize) -> Self {
+///         let a = reader.read_u32_at(offset);
+///         let b = reader.read_u16_at(offset + 4);
+///         Self { a, b }
+///     }
+/// }
+/// ```
+pub trait EndianReadableAt: Sized {
+    /// Deserializes the object using the provided [`EndianReader`] at the specified offset.
+    ///
+    /// # Parameters
+    ///
+    /// * `reader`: A mutable reference to an object implementing [`EndianReader`].
+    /// * `offset`: The offset in bytes from the current position.
+    ///
+    /// # Returns
+    ///
+    /// An instance of the implementing type.
+    ///
+    /// # Safety
+    ///
+    /// This method is unsafe because it involves reading directly from memory without bounds checking.
+    unsafe fn read_at<R: EndianReader>(reader: &mut R, offset: isize) -> Self;
 }
 
 /// A trait for endian writers to allow interchangeable usage.
@@ -209,6 +284,25 @@ pub trait EndianWriter {
     {
         value.write(self)
     }
+
+    /// Writes a value of type `T` that implements [`EndianWritableAt`] at the specified offset
+    /// without changing the current pointer/cursor position.
+    ///
+    /// # Parameters
+    ///
+    /// * `value`: The value to serialize and write.
+    /// * `offset`: The offset in bytes from the current position where the value will be written.
+    ///
+    /// # Safety
+    ///
+    /// This method is unsafe because it involves writing directly to memory without bounds checking.
+    /// The caller must ensure that there's enough space to serialize the value at the specified offset.
+    unsafe fn write_at<T: EndianWritableAt>(&mut self, value: &T, offset: isize)
+    where
+        Self: Sized,
+    {
+        value.write_at(self, offset)
+    }
 }
 
 /// A trait for endian readers to allow interchangeable usage.
@@ -287,6 +381,28 @@ pub trait EndianReader {
     {
         T::read(self)
     }
+
+    /// Reads a value of type `T` that implements [`EndianReadableAt`] from the specified offset
+    /// without changing the current pointer/cursor position.
+    ///
+    /// # Parameters
+    ///
+    /// * `offset`: The offset in bytes from the current position where the value will be read.
+    ///
+    /// # Returns
+    ///
+    /// An instance of `T` deserialized from the specified offset.
+    ///
+    /// # Safety
+    ///
+    /// This method is unsafe because it involves reading directly from memory without bounds checking.
+    /// The caller must ensure that there's enough data to deserialize the value at the specified offset.
+    unsafe fn read_at<T: EndianReadableAt>(&mut self, offset: isize) -> T
+    where
+        Self: Sized,
+    {
+        T::read_at(self, offset)
+    }
 }
 
 /// Implementations of `EndianWritable` and `EndianReadable` for base types.
@@ -296,7 +412,7 @@ macro_rules! impl_endian_traits_for_base_types {
             paste! {
                 /// Implementation of `EndianWritable` for [$type].
                 impl EndianWritable for $type {
-                    /// Serializes the value using the provided [`EndianWriter`].
+                    /// Writes the value using the provided [`EndianWriter`], advancing the cursor.
                     ///
                     /// # Safety
                     ///
@@ -308,13 +424,53 @@ macro_rules! impl_endian_traits_for_base_types {
 
                 /// Implementation of `EndianReadable` for [$type].
                 impl EndianReadable for $type {
-                    /// Deserializes the value using the provided [`EndianReader`].
+                    /// Reads the value using the provided [`EndianReader`], advancing the cursor.
                     ///
                     /// # Safety
                     ///
                     /// This method is unsafe because it reads directly from memory without bounds checking.
                     unsafe fn read<R: EndianReader>(reader: &mut R) -> Self {
                         reader.$read_fn()
+                    }
+                }
+
+                /// Implementation of `EndianWritableAt` for [$type].
+                impl EndianWritableAt for $type {
+                    /// Writes the value using the provided [`EndianWriter`] at the specified offset
+                    /// without advancing the cursor/pointer.
+                    ///
+                    /// # Parameters
+                    ///
+                    /// * `writer`: A mutable reference to an object implementing [`EndianWriter`].
+                    /// * `offset`: The offset in bytes from the current position.
+                    ///
+                    /// # Safety
+                    ///
+                    /// This method is unsafe because it involves writing directly to memory without bounds checking.
+                    unsafe fn write_at<W: EndianWriter>(&self, writer: &mut W, offset: isize) {
+                        writer.[<$write_fn _at>](*self, offset);
+                    }
+                }
+
+                /// Implementation of `EndianReadableAt` for [$type].
+                impl EndianReadableAt for $type {
+                    /// Reads the value using the provided [`EndianReader`] at the specified offset
+                    /// without advancing the cursor/pointer.
+                    ///
+                    /// # Parameters
+                    ///
+                    /// * `reader`: A mutable reference to an object implementing [`EndianReader`].
+                    /// * `offset`: The offset in bytes from the current position.
+                    ///
+                    /// # Returns
+                    ///
+                    /// An instance of `Self` deserialized from the specified offset.
+                    ///
+                    /// # Safety
+                    ///
+                    /// This method is unsafe because it involves reading directly from memory without bounds checking.
+                    unsafe fn read_at<R: EndianReader>(reader: &mut R, offset: isize) -> Self {
+                        reader.[<$read_fn _at>](offset)
                     }
                 }
             }
