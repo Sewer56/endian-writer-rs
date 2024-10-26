@@ -32,22 +32,22 @@ a specified endian format.
 use endian_writer::{BigEndianReader, LittleEndianReader, EndianReader};
 use core::mem::size_of;
 
-fn main() {
+unsafe fn example_reader() {
     // Example with BigEndianReader
     let big_data: [u8; 8] = [0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01]; // Big-endian for 0x0807060504030201u64
-    let mut big_reader = unsafe { BigEndianReader::new(big_data.as_ptr()) };
+    let mut big_reader = BigEndianReader::new(big_data.as_ptr());
 
     // Read a u64 value
-    let big_value: u64 = unsafe { big_reader.read_u64() };
+    let big_value: u64 = big_reader.read_u64();
     assert_eq!(big_value, 0x0807060504030201);
     println!("Big-endian read value: {:#x}", big_value);
 
     // Example with LittleEndianReader
     let little_data: [u8; 8] = [0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08]; // Little-endian for 0x0807060504030201u64
-    let mut little_reader = unsafe { LittleEndianReader::new(little_data.as_ptr()) };
+    let mut little_reader = LittleEndianReader::new(little_data.as_ptr());
 
     // Read a u64 value
-    let little_value: u64 = unsafe { little_reader.read_u64() };
+    let little_value: u64 = little_reader.read_u64();
     assert_eq!(little_value, 0x0807060504030201);
     println!("Little-endian read value: {:#x}", little_value);
 }
@@ -62,27 +62,23 @@ a specified endian format.
 use endian_writer::{BigEndianWriter, LittleEndianWriter, EndianWriter};
 use core::mem::size_of;
 
-fn main() {
+unsafe fn example_writer() {
     // Example with BigEndianWriter
     let mut big_data: [u8; 8] = [0; 8];
-    let mut big_writer = unsafe { BigEndianWriter::new(big_data.as_mut_ptr()) };
+    let mut big_writer = BigEndianWriter::new(big_data.as_mut_ptr());
 
     // Write a u64 value
-    unsafe {
-        big_writer.write_u64(0x0807060504030201u64);
-    }
+    big_writer.write_u64(0x0807060504030201u64);
 
     assert_eq!(big_data, [0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01]); // Big-endian for 0x0807060504030201u64
     println!("Big-endian written data: {:?}", big_data);
 
     // Example with LittleEndianWriter
     let mut little_data: [u8; 8] = [0; 8];
-    let mut little_writer = unsafe { LittleEndianWriter::new(little_data.as_mut_ptr()) };
+    let mut little_writer = LittleEndianWriter::new(little_data.as_mut_ptr());
 
     // Write a u64 value
-    unsafe {
-        little_writer.write_u64(0x0807060504030201u64);
-    }
+    little_writer.write_u64(0x0807060504030201u64);
 
     assert_eq!(little_data, [0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08]); // Little-endian for 0x0807060504030201u64
     println!("Little-endian written data: {:?}", little_data);
@@ -112,32 +108,28 @@ struct FileEntry {
 
 /// Allows you to serialize with either LittleEndianWriter or BigEndianWriter
 impl EndianSerializable for FileEntry {
-    fn serialize<W: EndianWriter>(&self, writer: &mut W) {
-        unsafe {
-            // Write fields at specific offsets
-            writer.write_u64_at_offset(self.hash, 0);
-            writer.write_u64_at_offset(self.data, 8);
-            // Advance the pointer after writing all fields
-            writer.seek(16 as isize);
-        }
+    unsafe fn serialize<W: EndianWriter>(&self, writer: &mut W) {
+        // Write fields at specific offsets
+        writer.write_u64_at_offset(self.hash, 0);
+        writer.write_u64_at_offset(self.data, 8);
+        // Advance the pointer after writing all fields
+        writer.seek(16 as isize);
     }
 }
 
 /// Allows you to deserialize with either LittleEndianReader or BigEndianReader
 impl EndianDeserializable for FileEntry {
-    fn deserialize<R: EndianReader>(reader: &mut R) -> Self {
-        unsafe {
-            // Read fields from specific offsets
-            let hash = reader.read_u64_at_offset(0);
-            let data = reader.read_u64_at_offset(8);
-            // Advance the pointer after reading all fields
-            reader.seek(16 as isize);
-            FileEntry { hash, data }
-        }
+    unsafe fn deserialize<R: EndianReader>(reader: &mut R) -> Self {
+        // Read fields from specific offsets
+        let hash = reader.read_u64_at_offset(0);
+        let data = reader.read_u64_at_offset(8);
+        // Advance the pointer after reading all fields
+        reader.seek(16 as isize);
+        FileEntry { hash, data }
     }
 }
 
-fn example_serialize_deserialize() {
+unsafe fn example_serialize_deserialize() {
     let entry = FileEntry {
         hash: 0x123456789ABCDEF0,
         data: 0x0FEDCBA987654321,
@@ -145,8 +137,8 @@ fn example_serialize_deserialize() {
 
     // Serialize using LittleEndianWriter
     let mut buffer_le: [u8; 16] = [0; 16];
-    let mut writer_le = unsafe { LittleEndianWriter::new(buffer_le.as_mut_ptr()) };
-    entry.serialize(&mut writer_le);
+    let mut writer_le = LittleEndianWriter::new(buffer_le.as_mut_ptr());
+    writer_le.write(&entry);
 
     assert_eq!(
         buffer_le,
@@ -159,7 +151,7 @@ fn example_serialize_deserialize() {
 
     // Serialize using BigEndianWriter
     let mut buffer_be: [u8; 16] = [0; 16];
-    let mut writer_be = unsafe { BigEndianWriter::new(buffer_be.as_mut_ptr()) };
+    let mut writer_be = BigEndianWriter::new(buffer_be.as_mut_ptr());
     entry.serialize(&mut writer_be);
 
     assert_eq!(
@@ -172,8 +164,8 @@ fn example_serialize_deserialize() {
     println!("Serialized buffer (Big Endian): {:?}", buffer_be);
 
     // Deserialize using LittleEndianReader
-    let mut reader_le = unsafe { LittleEndianReader::new(buffer_le.as_ptr()) };
-    let deserialized_le = unsafe { FileEntry::deserialize(&mut reader_le) };
+    let mut reader_le = LittleEndianReader::new(buffer_le.as_ptr());
+    let deserialized_le: FileEntry = reader_le.read();
     assert_eq!(deserialized_le.hash, entry.hash);
     assert_eq!(deserialized_le.data, entry.data);
     println!(
@@ -182,8 +174,8 @@ fn example_serialize_deserialize() {
     );
 
     // Deserialize using BigEndianReader
-    let mut reader_be = unsafe { BigEndianReader::new(buffer_be.as_ptr()) };
-    let deserialized_be = unsafe { FileEntry::deserialize(&mut reader_be) };
+    let mut reader_be = BigEndianReader::new(buffer_be.as_ptr());
+    let deserialized_be: FileEntry = reader_be.read();
     assert_eq!(deserialized_be.hash, entry.hash);
     assert_eq!(deserialized_be.data, entry.data);
     println!(
