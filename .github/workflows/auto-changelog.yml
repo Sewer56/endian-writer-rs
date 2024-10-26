@@ -23,8 +23,7 @@ jobs:
         uses: Reloaded-Project/devops-changelog@v1
         with:
           output: CHANGELOG.md
-          unreleased: true
-          commit-limit: 50
+          unreleased: false
           upload-artifact: true
           upload-release: true
           template: keepachangelog
