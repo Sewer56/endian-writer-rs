@@ -1,11 +1,12 @@
 [package]
 name = "endian-writer"
-version = "1.1.0"
+version = "1.1.1"
 edition = "2021"
 description = "[no_std] Methods for efficient reading and writing of structures to raw pointers in a stream-like fashion."
 repository = "https://github.com/Sewer56/endian-writer-rs"
 license-file = "LICENSE"
 include = ["src/**/*"]
+readme = "README.MD"
 
 [features]
 default = []
