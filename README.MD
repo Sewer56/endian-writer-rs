@@ -91,14 +91,15 @@ Readers and writers are interchangeable through the use of traits:
 
 - Readers implement the `EndianReader` trait.
 - Writers implement the `EndianWriter` trait.
-- Types that can be serialized/deserialized implement `EndianWritable` and `EndianReadable` respectively.
+- Types that can be written/read implement `EndianWritableAt` and `EndianReadableAt`, respectively, along with `HasSize`.
+    - This provides the `write`, `write_at`, `read`, `read_at` function, along with future extension methods.
 
 This allows you to write generic functions that can operate on any endian-specific reader or writer.
 
 ```rust
 use endian_writer::{
     EndianWriter, EndianReader, LittleEndianWriter, LittleEndianReader, BigEndianWriter, BigEndianReader,
-    EndianWritable, EndianReadable
+    EndianWritableAt, EndianReadableAt, HasSize
 };
 
 struct FileEntry {
@@ -107,24 +108,22 @@ struct FileEntry {
 }
 
 /// Allows you to serialize with either LittleEndianWriter or BigEndianWriter
-impl EndianWritable for FileEntry {
-    unsafe fn serialize<W: EndianWriter>(&self, writer: &mut W) {
-        // Write fields at specific offsets
-        writer.write_u64_at(self.hash, 0);
-        writer.write_u64_at(self.data, 8);
-        // Advance the pointer after writing all fields
-        writer.seek(16 as isize);
+impl EndianWritableAt for FileEntry {
+    unsafe fn write_at<W: EndianWriter>(&self, writer: &mut W, offset: isize) {
+        writer.write_u64_at(self.hash, offset);
+        writer.write_u64_at(self.data, offset + 8);
     }
 }
 
+impl HasSize for FileEntry {
+    const SIZE: usize = 16;
+}
+
 /// Allows you to deserialize with either LittleEndianReader or BigEndianReader
-impl EndianReadable for FileEntry {
-    unsafe fn deserialize<R: EndianReader>(reader: &mut R) -> Self {
-        // Read fields from specific offsets
-        let hash = reader.read_u64_at(0);
-        let data = reader.read_u64_at(8);
-        // Advance the pointer after reading all fields
-        reader.seek(16 as isize);
+impl EndianReadableAt for FileEntry {
+    unsafe fn read_at<R: EndianReader>(reader: &mut R, offset: isize) -> Self {
+        let hash = reader.read_u64_at(offset);
+        let data = reader.read_u64_at(offset + 8);
         FileEntry { hash, data }
     }
 }
@@ -135,7 +134,7 @@ unsafe fn example_serialize_deserialize() {
         data: 0x0FEDCBA987654321,
     };
 
-    // Serialize using LittleEndianWriter
+    // Write using LittleEndianWriter
     let mut buffer_le: [u8; 16] = [0; 16];
     let mut writer_le = LittleEndianWriter::new(buffer_le.as_mut_ptr());
     writer_le.write(&entry);
@@ -147,12 +146,12 @@ unsafe fn example_serialize_deserialize() {
             0x21, 0x43, 0x65, 0x87, 0xA9, 0xCB, 0xED, 0x0F  // data in little-endian
         ]
     );
-    println!("Serialized buffer (Little Endian): {:?}", buffer_le);
+    println!("Written buffer (Little Endian): {:?}", buffer_le);
 
-    // Serialize using BigEndianWriter
+    // Write using BigEndianWriter
     let mut buffer_be: [u8; 16] = [0; 16];
     let mut writer_be = BigEndianWriter::new(buffer_be.as_mut_ptr());
-    entry.serialize(&mut writer_be);
+    writer_be.write(&entry);
 
     assert_eq!(
         buffer_be,
@@ -161,33 +160,33 @@ unsafe fn example_serialize_deserialize() {
             0x0F, 0xED, 0xCB, 0xA9, 0x87, 0x65, 0x43, 0x21  // data in big-endian
         ]
     );
-    println!("Serialized buffer (Big Endian): {:?}", buffer_be);
+    println!("Written buffer (Big Endian): {:?}", buffer_be);
 
-    // Deserialize using LittleEndianReader
+    // Read using LittleEndianReader
     let mut reader_le = LittleEndianReader::new(buffer_le.as_ptr());
-    let deserialized_le: FileEntry = reader_le.read();
-    assert_eq!(deserialized_le.hash, entry.hash);
-    assert_eq!(deserialized_le.data, entry.data);
+    let read_le: FileEntry = reader_le.read();
+    assert_eq!(read_le.hash, entry.hash);
+    assert_eq!(read_le.data, entry.data);
     println!(
-        "Deserialized entry (Little Endian): hash={:#x}, data={:#x}",
-        deserialized_le.hash, deserialized_le.data
+        "Read entry (Little Endian): hash={:#x}, data={:#x}",
+        read_le.hash, read_le.data
     );
 
-    // Deserialize using BigEndianReader
+    // Read using BigEndianReader
     let mut reader_be = BigEndianReader::new(buffer_be.as_ptr());
-    let deserialized_be: FileEntry = reader_be.read();
-    assert_eq!(deserialized_be.hash, entry.hash);
-    assert_eq!(deserialized_be.data, entry.data);
+    let read_be: FileEntry = reader_be.read();
+    assert_eq!(read_be.hash, entry.hash);
+    assert_eq!(read_be.data, entry.data);
     println!(
-        "Deserialized entry (Big Endian): hash={:#x}, data={:#x}",
-        deserialized_be.hash, deserialized_be.data
+        "Read entry (Big Endian): hash={:#x}, data={:#x}",
+        read_be.hash, read_be.data
     );
 }
 ```
 
 #### Performance Note
 
-As seen in the code above, it's more efficient to use multiple `write_*_at` or `read_*_at`
+As seen in the code above, it's more efficient to use multiple `write_at` or `read_at`
 methods which don't advance the read pointer. When all fields are read, use a `seek` to advance the pointer.
 
 This approach makes it an easier job for the compiler to optimize the code, and is also faster in
