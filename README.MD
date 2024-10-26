@@ -204,3 +204,11 @@ debug builds.
 ## Development
 
 For information on how to work with this codebase, see [README-DEV.MD](README-DEV.MD).
+
+## License
+
+Licensed under [MIT](./LICENSE).  
+
+[Learn more about Reloaded's general choice of licensing for projects.][reloaded-license].
+
+[reloaded-license]: https://reloaded-project.github.io/Reloaded.MkDocsMaterial.Themes.R2/Pages/license/

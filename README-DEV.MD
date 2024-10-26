@@ -73,18 +73,11 @@ Make a tag, aptly named after the current version of the project. For instance, 
 
 See [CONTRIBUTING](CONTRIBUTING.MD) for guidance on how to contribute to this project.
 
-## License
-
-Licensed under [MIT](./LICENSE).  
-
-[Learn more about Reloaded's general choice of licensing for projects.][reloaded-license].  
-
 [codecov]: https://about.codecov.io/
 [codelldb]: https://marketplace.visualstudio.com/items?itemName=vadimcn.vscode-lldb
 [coverage-gutters]: https://marketplace.visualstudio.com/items?itemName=ryanluker.vscode-coverage-gutters 
 [crates-io-key]: https://crates.io/settings/tokens
 [nuget-key]: https://www.nuget.org/account/apikeys
 [target-triple]: https://doc.rust-lang.org/nightly/rustc/platform-support.html
-[reloaded-license]: https://reloaded-project.github.io/Reloaded.MkDocsMaterial.Themes.R2/Pages/license/
 [rust-analyzer]: https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer
 [rust-toolchain]: https://www.rust-lang.org/tools/install
