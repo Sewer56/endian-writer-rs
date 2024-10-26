@@ -153,6 +153,18 @@ pub trait EndianDeserializable: Sized {
 ///     }
 /// }
 /// ```
+///
+/// This trait can also be used to write any type that implements [`EndianSerializable`] with the
+/// [`EndianWriter::write`] method.
+///
+/// ```ignore
+/// let mut buffer = [0u8; 6];
+/// let mut writer = unsafe { LittleEndianWriter::new(buffer.as_mut_ptr()) };
+/// let my_struct = MyStruct { a: 0x12345678, b: 0x9ABC };
+/// unsafe {
+///     writer.write(&my_struct);
+/// }
+/// ```
 pub trait EndianWriter {
     /// Writes a byte slice to the current position and advances the pointer.
     ///
@@ -190,6 +202,24 @@ pub trait EndianWriter {
         f32 => write_f32,
         f64 => write_f64
     );
+
+    /// Writes a value of type `T` that implements [`EndianSerializable`].
+    ///
+    /// # Parameters
+    ///
+    /// * `value`: The value to serialize and write.
+    ///
+    /// # Safety
+    ///
+    /// This method is unsafe because it invokes `serialize`, which involves writing
+    /// directly to memory without bounds checking. The caller must ensure that
+    /// there's enough space to serialize the value.
+    unsafe fn write<T: EndianSerializable>(&mut self, value: &T)
+    where
+        Self: Sized,
+    {
+        value.serialize(self)
+    }
 }
 
 /// A trait for endian readers to allow interchangeable usage.
@@ -214,6 +244,15 @@ pub trait EndianWriter {
 ///         MyStruct { a, b }
 ///     }
 /// }
+/// ```
+///
+/// This trait can also be used to read any type that implements [`EndianDeserializable`] with the
+/// [`EndianReader::read`] method.
+///
+/// ```ignore
+/// let data: [u8; 6] = [0x78, 0x56, 0x34, 0x12, 0xBC, 0x9A];
+/// let mut reader = unsafe { LittleEndianReader::new(data.as_ptr()) };
+/// let my_struct: MyStruct = unsafe { reader.read() };
 /// ```
 pub trait EndianReader {
     /// Reads a byte slice from the current position and advances the pointer.
@@ -252,6 +291,24 @@ pub trait EndianReader {
         f32 => read_f32,
         f64 => read_f64
     );
+
+    /// Reads a value of type `T` that implements [`EndianDeserializable`].
+    ///
+    /// # Returns
+    ///
+    /// An instance of `T` deserialized from the current position.
+    ///
+    /// # Safety
+    ///
+    /// This method is unsafe because it invokes `deserialize`, which involves reading
+    /// directly from memory without bounds checking. The caller must ensure that
+    /// there's enough data to deserialize the value.
+    unsafe fn read<T: EndianDeserializable>(&mut self) -> T
+    where
+        Self: Sized,
+    {
+        T::deserialize(self)
+    }
 }
 
 /// Implementations of `EndianSerializable` and `EndianDeserializable` for base types.
@@ -300,3 +357,106 @@ impl_endian_traits_for_base_types!(
     f32 => write_f32, read_f32,
     f64 => write_f64, read_f64
 );
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{BigEndianReader, BigEndianWriter, LittleEndianReader, LittleEndianWriter};
+    use core::f32;
+
+    #[derive(Debug, PartialEq)]
+    struct TestStruct {
+        a: u32,
+        b: u16,
+        c: f32,
+    }
+
+    impl EndianSerializable for TestStruct {
+        /// Serializes `TestStruct` using the provided `EndianWriter`.
+        ///
+        /// # Safety
+        ///
+        /// The method is unsafe because it writes directly to memory without bounds checking.
+        unsafe fn serialize<W: EndianWriter>(&self, writer: &mut W) {
+            writer.write_u32(self.a);
+            writer.write_u16(self.b);
+            writer.write_f32(self.c);
+        }
+    }
+
+    impl EndianDeserializable for TestStruct {
+        /// Deserializes `TestStruct` using the provided `EndianReader`.
+        ///
+        /// # Safety
+        ///
+        /// The method is unsafe because it reads directly from memory without bounds checking.
+        unsafe fn deserialize<R: EndianReader>(reader: &mut R) -> Self {
+            let a = reader.read_u32();
+            let b = reader.read_u16();
+            let c = reader.read_f32();
+            TestStruct { a, b, c }
+        }
+    }
+
+    #[test]
+    fn little_endian_write_read() {
+        let mut buffer = [0u8; 10];
+        let mut writer = unsafe { LittleEndianWriter::new(buffer.as_mut_ptr()) };
+        let original = TestStruct {
+            a: 0x12345678,
+            b: 0x9ABC,
+            c: f32::consts::PI,
+        };
+
+        unsafe {
+            writer.write(&original);
+        }
+
+        let mut reader = unsafe { LittleEndianReader::new(buffer.as_ptr()) };
+        let deserialized: TestStruct = unsafe { reader.read() };
+
+        assert_eq!(original, deserialized);
+    }
+
+    #[test]
+    fn big_endian_write_read() {
+        let mut buffer = [0u8; 10];
+        let mut writer = unsafe { BigEndianWriter::new(buffer.as_mut_ptr()) };
+        let original = TestStruct {
+            a: 0x12345678,
+            b: 0x9ABC,
+            c: f32::consts::PI,
+        };
+
+        unsafe {
+            writer.write(&original);
+        }
+
+        let mut reader = unsafe { BigEndianReader::new(buffer.as_ptr()) };
+        let deserialized: TestStruct = unsafe { reader.read() };
+
+        assert_eq!(original, deserialized);
+    }
+
+    #[test]
+    fn partial_write_read() {
+        // This test ensures that writing at an offset works correctly
+        let mut buffer = [0u8; 20];
+        let mut writer = unsafe { LittleEndianWriter::new(buffer.as_mut_ptr()) };
+        let original = TestStruct {
+            a: 0xDEADBEEF,
+            b: 0xBEEF,
+            c: f32::consts::E,
+        };
+
+        unsafe {
+            writer.seek(10);
+            writer.write(&original);
+        }
+
+        let mut reader = unsafe { LittleEndianReader::new(buffer.as_ptr().add(10)) };
+        let deserialized: TestStruct = unsafe { reader.read() };
+
+        assert_eq!(original, deserialized);
+    }
+}
