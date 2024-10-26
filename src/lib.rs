@@ -8,6 +8,7 @@ pub mod big_endian_writer;
 pub mod little_endian_reader;
 pub mod little_endian_writer;
 pub mod traits;
+pub mod unroll_intrinsics;
 
 // Prelude
 pub use big_endian_reader::*;
@@ -15,3 +16,4 @@ pub use big_endian_writer::*;
 pub use little_endian_reader::*;
 pub use little_endian_writer::*;
 pub use traits::*;
+pub use unroll_intrinsics::*;
