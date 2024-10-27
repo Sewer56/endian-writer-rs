@@ -91,7 +91,19 @@ pub trait EndianWriterExt {
     ///
     /// // buffer now contains the serialized entries
     /// ```
-    unsafe fn write_entries<T: EndianWritable + HasSize>(&mut self, entries: &[T]);
+    unsafe fn write_entries<T: EndianWritable + HasSize>(&mut self, entries: &[T])
+    where
+        Self: EndianWriter + Sized,
+    {
+        let ptr = entries.as_ptr();
+        let end = ptr.add(entries.len());
+
+        let mut current = ptr;
+        while current < end {
+            (*current).write(self);
+            current = current.add(1);
+        }
+    }
 
     /// Writes multiple entries using the provided [`EndianWriter`] with an unroll factor of 2.
     ///
@@ -141,7 +153,33 @@ pub trait EndianWriterExt {
     ///
     /// // buffer now contains the serialized entries
     /// ```
-    unsafe fn write_entries_unroll_2<T: EndianWritable + HasSize>(&mut self, entries: &[T]);
+    unsafe fn write_entries_unroll_2<T: EndianWritable + HasSize>(&mut self, entries: &[T])
+    where
+        Self: EndianWriter + Sized,
+    {
+        let len = entries.len();
+        if len == 0 {
+            return;
+        }
+
+        let ptr = entries.as_ptr();
+        let end = ptr.add(len);
+        let unrolled_end = ptr.add(len - (len % 2));
+        let mut current = ptr;
+
+        // Process two entries at a time
+        while current < unrolled_end {
+            (*current).write(self);
+            (*current.add(1)).write(self);
+            current = current.add(2);
+        }
+
+        // Handle any remaining entries
+        while current < end {
+            (*current).write(self);
+            current = current.add(1);
+        }
+    }
 
     /// Writes multiple entries using the provided [`EndianWriter`] with an unroll factor of 3.
     ///
@@ -192,7 +230,34 @@ pub trait EndianWriterExt {
     ///
     /// // buffer now contains the serialized entries
     /// ```
-    unsafe fn write_entries_unroll_3<T: EndianWritable + HasSize>(&mut self, entries: &[T]);
+    unsafe fn write_entries_unroll_3<T: EndianWritable + HasSize>(&mut self, entries: &[T])
+    where
+        Self: EndianWriter + Sized,
+    {
+        let len = entries.len();
+        if len == 0 {
+            return;
+        }
+
+        let ptr = entries.as_ptr();
+        let end = ptr.add(len);
+        let unrolled_end = ptr.add(len - (len % 3));
+        let mut current = ptr;
+
+        // Process three entries at a time
+        while current < unrolled_end {
+            (*current).write(self);
+            (*current.add(1)).write(self);
+            (*current.add(2)).write(self);
+            current = current.add(3);
+        }
+
+        // Handle any remaining entries
+        while current < end {
+            (*current).write(self);
+            current = current.add(1);
+        }
+    }
 
     /// Writes multiple entries using the provided [`EndianWriter`] with an unroll factor of 4.
     ///
@@ -244,130 +309,10 @@ pub trait EndianWriterExt {
     ///
     /// // buffer now contains the serialized entries
     /// ```
-    unsafe fn write_entries_unroll_4<T: EndianWritable + HasSize>(&mut self, entries: &[T]);
-
-    /// Writes multiple entries by converting each item into type `T` using `Into<T>`.
-    ///
-    /// # Parameters
-    ///
-    /// * `entries`: A slice of items that can be converted into `T`.
-    ///
-    /// # Safety
-    ///
-    /// This method is unsafe because it involves writing directly to memory without bounds checking.
-    /// The caller must ensure that the writer has enough space to write all the entries.
-    unsafe fn write_entries_into<T, U>(&mut self, entries: &[U])
+    unsafe fn write_entries_unroll_4<T: EndianWritable + HasSize>(&mut self, entries: &[T])
     where
-        U: Into<T> + Copy,
-        T: EndianWritable + HasSize;
-
-    /// Writes multiple entries with an unroll factor of 2 by converting each item into type `T`.
-    ///
-    /// # Parameters
-    ///
-    /// * `entries`: A slice of items that can be converted into `T`.
-    ///
-    /// # Safety
-    ///
-    /// Same as above.
-    unsafe fn write_entries_into_unroll_2<T, U>(&mut self, entries: &[U])
-    where
-        U: Into<T> + Copy,
-        T: EndianWritable + HasSize;
-
-    /// Writes multiple entries with an unroll factor of 3 by converting each item into type `T`.
-    ///
-    /// # Parameters
-    ///
-    /// * `entries`: A slice of items that can be converted into `T`.
-    ///
-    /// # Safety
-    ///
-    /// Same as above.
-    unsafe fn write_entries_into_unroll_3<T, U>(&mut self, entries: &[U])
-    where
-        U: Into<T> + Copy,
-        T: EndianWritable + HasSize;
-
-    /// Writes multiple entries with an unroll factor of 4 by converting each item into type `T`.
-    ///
-    /// # Parameters
-    ///
-    /// * `entries`: A slice of items that can be converted into `T`.
-    ///
-    /// # Safety
-    ///
-    /// Same as above.
-    unsafe fn write_entries_into_unroll_4<T, U>(&mut self, entries: &[U])
-    where
-        U: Into<T> + Copy,
-        T: EndianWritable + HasSize;
-}
-
-impl<W: EndianWriter> EndianWriterExt for W {
-    unsafe fn write_entries<T: EndianWritable + HasSize>(&mut self, entries: &[T]) {
-        let ptr = entries.as_ptr();
-        let end = ptr.add(entries.len());
-
-        let mut current = ptr;
-        while current < end {
-            (*current).write(self);
-            current = current.add(1);
-        }
-    }
-
-    unsafe fn write_entries_unroll_2<T: EndianWritable + HasSize>(&mut self, entries: &[T]) {
-        let len = entries.len();
-        if len == 0 {
-            return;
-        }
-
-        let ptr = entries.as_ptr();
-        let end = ptr.add(len);
-        let unrolled_end = ptr.add(len - (len % 2));
-        let mut current = ptr;
-
-        // Process two entries at a time
-        while current < unrolled_end {
-            (*current).write(self);
-            (*current.add(1)).write(self);
-            current = current.add(2);
-        }
-
-        // Handle any remaining entries
-        while current < end {
-            (*current).write(self);
-            current = current.add(1);
-        }
-    }
-
-    unsafe fn write_entries_unroll_3<T: EndianWritable + HasSize>(&mut self, entries: &[T]) {
-        let len = entries.len();
-        if len == 0 {
-            return;
-        }
-
-        let ptr = entries.as_ptr();
-        let end = ptr.add(len);
-        let unrolled_end = ptr.add(len - (len % 3));
-        let mut current = ptr;
-
-        // Process three entries at a time
-        while current < unrolled_end {
-            (*current).write(self);
-            (*current.add(1)).write(self);
-            (*current.add(2)).write(self);
-            current = current.add(3);
-        }
-
-        // Handle any remaining entries
-        while current < end {
-            (*current).write(self);
-            current = current.add(1);
-        }
-    }
-
-    unsafe fn write_entries_unroll_4<T: EndianWritable + HasSize>(&mut self, entries: &[T]) {
+        Self: EndianWriter + Sized,
+    {
         let len = entries.len();
         if len == 0 {
             return;
@@ -394,10 +339,21 @@ impl<W: EndianWriter> EndianWriterExt for W {
         }
     }
 
+    /// Writes multiple entries by converting each item into type `T` using `Into<T>`.
+    ///
+    /// # Parameters
+    ///
+    /// * `entries`: A slice of items that can be converted into `T`.
+    ///
+    /// # Safety
+    ///
+    /// This method is unsafe because it involves writing directly to memory without bounds checking.
+    /// The caller must ensure that the writer has enough space to write all the entries.
     unsafe fn write_entries_into<T, U>(&mut self, entries: &[U])
     where
         U: Into<T> + Copy,
         T: EndianWritable + HasSize,
+        Self: EndianWriter + Sized,
     {
         for entry in entries {
             let converted: T = (*entry).into();
@@ -405,10 +361,20 @@ impl<W: EndianWriter> EndianWriterExt for W {
         }
     }
 
+    /// Writes multiple entries with an unroll factor of 2 by converting each item into type `T`.
+    ///
+    /// # Parameters
+    ///
+    /// * `entries`: A slice of items that can be converted into `T`.
+    ///
+    /// # Safety
+    ///
+    /// Same as above.
     unsafe fn write_entries_into_unroll_2<T, U>(&mut self, entries: &[U])
     where
         U: Into<T> + Copy,
         T: EndianWritable + HasSize,
+        Self: EndianWriter + Sized,
     {
         let len = entries.len();
         if len == 0 {
@@ -437,10 +403,20 @@ impl<W: EndianWriter> EndianWriterExt for W {
         }
     }
 
+    /// Writes multiple entries with an unroll factor of 3 by converting each item into type `T`.
+    ///
+    /// # Parameters
+    ///
+    /// * `entries`: A slice of items that can be converted into `T`.
+    ///
+    /// # Safety
+    ///
+    /// Same as above.
     unsafe fn write_entries_into_unroll_3<T, U>(&mut self, entries: &[U])
     where
         U: Into<T> + Copy,
         T: EndianWritable + HasSize,
+        Self: EndianWriter + Sized,
     {
         let len = entries.len();
         if len == 0 {
@@ -471,10 +447,20 @@ impl<W: EndianWriter> EndianWriterExt for W {
         }
     }
 
+    /// Writes multiple entries with an unroll factor of 4 by converting each item into type `T`.
+    ///
+    /// # Parameters
+    ///
+    /// * `entries`: A slice of items that can be converted into `T`.
+    ///
+    /// # Safety
+    ///
+    /// Same as above.
     unsafe fn write_entries_into_unroll_4<T, U>(&mut self, entries: &[U])
     where
         U: Into<T> + Copy,
         T: EndianWritable + HasSize,
+        Self: EndianWriter + Sized,
     {
         let len = entries.len();
         if len == 0 {
@@ -601,7 +587,14 @@ pub trait EndianReaderExt {
     ///     reader.read_entries(&mut entries);
     /// }
     /// ```
-    unsafe fn read_entries<T: EndianReadable + HasSize>(&mut self, entries: &mut [T]);
+    unsafe fn read_entries<T: EndianReadable + HasSize>(&mut self, entries: &mut [T])
+    where
+        Self: EndianReader + Sized,
+    {
+        for entry in entries.iter_mut() {
+            *entry = T::read(self);
+        }
+    }
 
     /// Reads multiple entries using the provided [`EndianReader`] with an unroll factor of 2.
     ///
@@ -657,7 +650,29 @@ pub trait EndianReaderExt {
     ///     reader.read_entries_unroll_2(&mut entries);
     /// }
     /// ```
-    unsafe fn read_entries_unroll_2<T: EndianReadable + HasSize>(&mut self, entries: &mut [T]);
+    unsafe fn read_entries_unroll_2<T: EndianReadable + HasSize>(&mut self, entries: &mut [T])
+    where
+        Self: EndianReader + Sized,
+    {
+        let len = entries.len();
+        let mut index = 0;
+        let base_ptr = entries.as_mut_ptr();
+
+        // Process two entries at a time
+        while index + 2 <= len {
+            let ptr = base_ptr.add(index);
+            *ptr = T::read(self);
+            *ptr.add(1) = T::read(self);
+            index += 2;
+        }
+
+        // Handle any remaining entries
+        while index < len {
+            let ptr = base_ptr.add(index);
+            *ptr = T::read(self);
+            index += 1;
+        }
+    }
 
     /// Reads multiple entries using the provided [`EndianReader`] with an unroll factor of 3.
     ///
@@ -715,7 +730,34 @@ pub trait EndianReaderExt {
     ///     reader.read_entries_unroll_3(&mut entries);
     /// }
     /// ```
-    unsafe fn read_entries_unroll_3<T: EndianReadable + HasSize>(&mut self, entries: &mut [T]);
+    unsafe fn read_entries_unroll_3<T: EndianReadable + HasSize>(&mut self, entries: &mut [T])
+    where
+        Self: EndianReader + Sized,
+    {
+        let len = entries.len();
+        if len == 0 {
+            return;
+        }
+
+        let base_ptr = entries.as_mut_ptr();
+        let end = base_ptr.add(len);
+        let unrolled_end = base_ptr.add(len - (len % 3));
+        let mut current = base_ptr;
+
+        // Process three entries at a time
+        while current < unrolled_end {
+            *current = T::read(self);
+            *current.add(1) = T::read(self);
+            *current.add(2) = T::read(self);
+            current = current.add(3);
+        }
+
+        // Handle any remaining entries
+        while current < end {
+            *current = T::read(self);
+            current = current.add(1);
+        }
+    }
 
     /// Reads multiple entries using the provided [`EndianReader`] with an unroll factor of 4.
     ///
@@ -776,120 +818,10 @@ pub trait EndianReaderExt {
     ///     reader.read_entries_unroll_4(&mut entries);
     /// }
     /// ```
-    unsafe fn read_entries_unroll_4<T: EndianReadable + HasSize>(&mut self, entries: &mut [T]);
-
-    /// Reads multiple entries from one type and converts them into another using `From`.
-    ///
-    /// # Parameters
-    ///
-    /// * `entries`: A mutable slice of entries to be populated. Each entry must implement `From<T>`, and `T` must implement [`EndianReadable`] and [`HasSize`].
-    ///
-    /// # Safety
-    ///
-    /// This method is unsafe because it involves reading directly from memory without bounds checking.
-    /// The caller must ensure that there's enough data to read all the entries.
-    unsafe fn read_entries_into<U, T>(&mut self, entries: &mut [U])
+    unsafe fn read_entries_unroll_4<T: EndianReadable + HasSize>(&mut self, entries: &mut [T])
     where
-        T: EndianReadable + HasSize + Into<U>;
-
-    /// Reads multiple entries from one type and converts them into another with an unroll factor of 2 using `From`.
-    ///
-    /// # Parameters
-    ///
-    /// * `entries`: A mutable slice of entries to be populated. Each entry must implement `From<T>`, and `T` must implement [`EndianReadable`] and [`HasSize`].
-    ///
-    /// # Safety
-    ///
-    /// This method is unsafe because it involves reading directly from memory without bounds checking.
-    /// The caller must ensure that there's enough data to read all the entries.
-    unsafe fn read_entries_into_unroll_2<U, T>(&mut self, entries: &mut [U])
-    where
-        T: EndianReadable + HasSize + Into<U>;
-
-    /// Reads multiple entries from one type and converts them into another with an unroll factor of 3 using `From`.
-    ///
-    /// # Parameters
-    ///
-    /// * `entries`: A mutable slice of entries to be populated. Each entry must implement `From<T>`, and `T` must implement [`EndianReadable`] and [`HasSize`].
-    ///
-    /// # Safety
-    ///
-    /// This method is unsafe because it involves reading directly from memory without bounds checking.
-    /// The caller must ensure that there's enough data to read all the entries.
-    unsafe fn read_entries_into_unroll_3<U, T>(&mut self, entries: &mut [U])
-    where
-        T: EndianReadable + HasSize + Into<U>;
-
-    /// Reads multiple entries from one type and converts them into another with an unroll factor of 4 using `From`.
-    ///
-    /// # Parameters
-    ///
-    /// * `entries`: A mutable slice of entries to be populated. Each entry must implement `From<T>`, and `T` must implement [`EndianReadable`] and [`HasSize`].
-    ///
-    /// # Safety
-    ///
-    /// This method is unsafe because it involves reading directly from memory without bounds checking.
-    /// The caller must ensure that there's enough data to read all the entries.
-    unsafe fn read_entries_into_unroll_4<U, T>(&mut self, entries: &mut [U])
-    where
-        T: EndianReadable + HasSize + Into<U>;
-}
-
-impl<R: EndianReader> EndianReaderExt for R {
-    unsafe fn read_entries<T: EndianReadable + HasSize>(&mut self, entries: &mut [T]) {
-        for entry in entries.iter_mut() {
-            *entry = T::read(self);
-        }
-    }
-
-    unsafe fn read_entries_unroll_2<T: EndianReadable + HasSize>(&mut self, entries: &mut [T]) {
-        let len = entries.len();
-        let mut index = 0;
-        let base_ptr = entries.as_mut_ptr();
-
-        // Process two entries at a time
-        while index + 2 <= len {
-            let ptr = base_ptr.add(index);
-            *ptr = T::read(self);
-            *ptr.add(1) = T::read(self);
-            index += 2;
-        }
-
-        // Handle any remaining entries
-        while index < len {
-            let ptr = base_ptr.add(index);
-            *ptr = T::read(self);
-            index += 1;
-        }
-    }
-
-    unsafe fn read_entries_unroll_3<T: EndianReadable + HasSize>(&mut self, entries: &mut [T]) {
-        let len = entries.len();
-        if len == 0 {
-            return;
-        }
-
-        let base_ptr = entries.as_mut_ptr();
-        let end = base_ptr.add(len);
-        let unrolled_end = base_ptr.add(len - (len % 3));
-        let mut current = base_ptr;
-
-        // Process three entries at a time
-        while current < unrolled_end {
-            *current = T::read(self);
-            *current.add(1) = T::read(self);
-            *current.add(2) = T::read(self);
-            current = current.add(3);
-        }
-
-        // Handle any remaining entries
-        while current < end {
-            *current = T::read(self);
-            current = current.add(1);
-        }
-    }
-
-    unsafe fn read_entries_unroll_4<T: EndianReadable + HasSize>(&mut self, entries: &mut [T]) {
+        Self: EndianReader + Sized,
+    {
         let len = entries.len();
         if len == 0 {
             return;
@@ -916,18 +848,40 @@ impl<R: EndianReader> EndianReaderExt for R {
         }
     }
 
+    /// Reads multiple entries from one type and converts them into another using `From`.
+    ///
+    /// # Parameters
+    ///
+    /// * `entries`: A mutable slice of entries to be populated. Each entry must implement `From<T>`, and `T` must implement [`EndianReadable`] and [`HasSize`].
+    ///
+    /// # Safety
+    ///
+    /// This method is unsafe because it involves reading directly from memory without bounds checking.
+    /// The caller must ensure that there's enough data to read all the entries.
     unsafe fn read_entries_into<U, T>(&mut self, entries: &mut [U])
     where
         T: EndianReadable + HasSize + Into<U>,
+        Self: EndianReader + Sized,
     {
         for entry in entries.iter_mut() {
             *entry = T::read(self).into();
         }
     }
 
+    /// Reads multiple entries from one type and converts them into another with an unroll factor of 2 using `From`.
+    ///
+    /// # Parameters
+    ///
+    /// * `entries`: A mutable slice of entries to be populated. Each entry must implement `From<T>`, and `T` must implement [`EndianReadable`] and [`HasSize`].
+    ///
+    /// # Safety
+    ///
+    /// This method is unsafe because it involves reading directly from memory without bounds checking.
+    /// The caller must ensure that there's enough data to read all the entries.
     unsafe fn read_entries_into_unroll_2<U, T>(&mut self, entries: &mut [U])
     where
         T: EndianReadable + HasSize + Into<U>,
+        Self: EndianReader + Sized,
     {
         let len = entries.len();
         if len == 0 {
@@ -953,9 +907,20 @@ impl<R: EndianReader> EndianReaderExt for R {
         }
     }
 
+    /// Reads multiple entries from one type and converts them into another with an unroll factor of 3 using `From`.
+    ///
+    /// # Parameters
+    ///
+    /// * `entries`: A mutable slice of entries to be populated. Each entry must implement `From<T>`, and `T` must implement [`EndianReadable`] and [`HasSize`].
+    ///
+    /// # Safety
+    ///
+    /// This method is unsafe because it involves reading directly from memory without bounds checking.
+    /// The caller must ensure that there's enough data to read all the entries.
     unsafe fn read_entries_into_unroll_3<U, T>(&mut self, entries: &mut [U])
     where
         T: EndianReadable + HasSize + Into<U>,
+        Self: EndianReader + Sized,
     {
         let len = entries.len();
         if len == 0 {
@@ -982,9 +947,19 @@ impl<R: EndianReader> EndianReaderExt for R {
         }
     }
 
+    /// Reads multiple entries from one type and converts them into another with an unroll factor of 4 using `From`.
+    ///
+    /// # Parameters
+    ///
+    /// * `entries`: A mutable slice of entries to be populated. Each entry must implement `From<T>`, and `T` must implement [`EndianReadable`] and [`HasSize`].
+    ///
+    /// # Safety
+    ///
+    /// This method is unsafe because it involves reading directly from memory without bounds checking.
     unsafe fn read_entries_into_unroll_4<U, T>(&mut self, entries: &mut [U])
     where
         T: EndianReadable + HasSize + Into<U>,
+        Self: EndianReader + Sized,
     {
         let len = entries.len();
         if len == 0 {
@@ -1012,6 +987,9 @@ impl<R: EndianReader> EndianReaderExt for R {
         }
     }
 }
+
+impl<T: EndianReader> EndianReaderExt for T {}
+impl<T: EndianWriter> EndianWriterExt for T {}
 
 #[cfg(test)]
 mod tests {
