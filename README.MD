@@ -192,6 +192,99 @@ methods which don't advance the read pointer. When all fields are read, use a `s
 This approach makes it an easier job for the compiler to optimize the code, and is also faster in
 debug builds.
 
+### Extensions: Reading Slices of Structs
+
+You can use `write_entries` and `read_entries` for efficient batch operations.
+
+```rust
+#[derive(Debug, PartialEq, Copy, Clone)]
+struct FileEntry {
+    hash: u64,
+    data: u64,
+}
+
+impl EndianWritableAt for FileEntry {
+    unsafe fn write_at<W: EndianWriter>(&self, writer: &mut W, offset: isize) {
+        writer.write_u64_at(self.hash, offset);
+        writer.write_u64_at(self.data, offset + 8);
+    }
+}
+
+impl EndianReadableAt for FileEntry {
+    unsafe fn read_at<R: EndianReader>(reader: &mut R, offset: isize) -> Self {
+        let hash = reader.read_u64_at(offset);
+        let data = reader.read_u64_at(offset + 8);
+        FileEntry { hash, data }
+    }
+}
+
+impl HasSize for FileEntry {
+    const SIZE: usize = 16;
+}
+
+unsafe {
+    let entries = [
+        FileEntry { hash: 0x123456789ABCDEF0, data: 0x0FEDCBA987654321 },
+        FileEntry { hash: 0x0, data: 0x1 },
+    ];
+
+    // Write a slice of 2 entries.
+    let mut buffer = [0u8; 32];
+    let mut writer = LittleEndianWriter::new(buffer.as_mut_ptr());
+    writer.write_entries(&entries);
+
+    // Read a slice of 2 entries.
+    let mut reader = LittleEndianReader::new(buffer.as_ptr());
+    let mut read_entries = [FileEntry { hash: 0, data: 0 }; 2];
+    reader.read_entries(&mut read_entries);
+}
+```
+
+```rust
+#[derive(Debug, PartialEq, Copy, Clone)]
+struct FileEntryB {
+    hash: u64,
+    data: u64,
+}
+
+// To FileEntry for writing.
+impl From<FileEntryB> for FileEntry {
+    fn from(source: FileEntryB) -> Self {
+        FileEntry {
+            hash: source.hash,
+            data: source.data,
+        }
+    }
+}
+
+// To FileEntryB for reading.
+impl From<FileEntry> for FileEntryB {
+    fn from(source: FileEntry) -> Self {
+        FileEntryB {
+            hash: source.hash,
+            data: source.data,
+        }
+    }
+}
+
+unsafe {
+    let sources = vec![
+        FileEntryB { hash: 0x123456789ABCDEF0, data: 0x0FEDCBA987654321 },
+        FileEntryB { hash: 0x0, data: 0x1 },
+    ];
+
+    // Write 2 FileEntryB as FileEntry
+    let mut buffer = [0u8; 32];
+    let mut writer = LittleEndianWriter::new(buffer.as_mut_ptr());
+    writer.write_entries_into::<FileEntry, FileEntryB>(&sources);
+
+    // Read 2 FileEntry as FileEntryB
+    let mut reader = LittleEndianReader::new(buffer.as_ptr());
+    let mut read_entries = vec![FileEntryB { hash: 0, data: 0 }; 2];
+    reader.read_entries_into::<FileEntryB, FileEntry>(&mut read_entries);
+}
+```
+
 ## Development
 
 For information on how to work with this codebase, see [README-DEV.MD](README-DEV.MD).
