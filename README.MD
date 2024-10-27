@@ -184,6 +184,26 @@ unsafe fn example_serialize_deserialize() {
 }
 ```
 
+#### Automatically Deriving The Traits
+
+The following piece of Rust code.
+
+```rust
+use endian_writer_derive::EndianWritable;
+#[derive(EndianWritable)]
+#[repr(C)]
+struct MyStruct {
+    a: u32,
+    b: u16,
+    c: u8,
+}
+```
+
+Will automatically derive the traits [EndianWritableAt], [EndianReadableAt],
+and [HasSize] provided all children of the struct also implement these traits.
+
+For more details and caveats, see the [endian-writer-derive] crate.
+
 #### Performance Note
 
 As seen in the code above, it's more efficient to use multiple `write_at` or `read_at`
@@ -296,3 +316,7 @@ Licensed under [MIT](./LICENSE).
 [Learn more about Reloaded's general choice of licensing for projects.][reloaded-license].
 
 [reloaded-license]: https://reloaded-project.github.io/Reloaded.MkDocsMaterial.Themes.R2/Pages/license/
+[EndianWritableAt]: https://docs.rs/endian-writer/2.1.0/endian_writer/traits/trait.EndianWritableAt.html
+[EndianReadableAt]: https://docs.rs/endian-writer/2.1.0/endian_writer/traits/trait.EndianReadableAt.html
+[HasSize]: https://docs.rs/endian-writer/2.1.0/endian_writer/traits/trait.HasSize.html
+[endian-writer-derive]: https://github.com/Sewer56/endian-writer-derive/blob/main/README.MD#example
