@@ -18,7 +18,7 @@ Add `endian_writer` to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-endian_writer = "0.1.0"  # Replace with the actual version
+endian_writer = "2.2.0"  # Replace with the actual version
 ```
 
 ## Usage
@@ -29,7 +29,7 @@ The `BigEndianReader` and `LittleEndianReader` allow you to read data from a raw
 a specified endian format.
 
 ```rust
-use endian_writer::{BigEndianReader, LittleEndianReader, EndianReader};
+use endian_writer::*;
 use core::mem::size_of;
 
 unsafe fn example_reader() {
@@ -59,7 +59,7 @@ The `BigEndianWriter` and `LittleEndianWriter` allow you to write data to a raw 
 a specified endian format.
 
 ```rust
-use endian_writer::{BigEndianWriter, LittleEndianWriter, EndianWriter};
+use endian_writer::*;
 use core::mem::size_of;
 
 unsafe fn example_writer() {
@@ -97,10 +97,7 @@ Readers and writers are interchangeable through the use of traits:
 This allows you to write generic functions that can operate on any endian-specific reader or writer.
 
 ```rust
-use endian_writer::{
-    EndianWriter, EndianReader, LittleEndianWriter, LittleEndianReader, BigEndianWriter, BigEndianReader,
-    EndianWritableAt, EndianReadableAt, HasSize
-};
+use endian_writer::*;
 
 struct FileEntry {
     hash: u64,
@@ -188,8 +185,9 @@ unsafe fn example_serialize_deserialize() {
 
 The following piece of Rust code.
 
-```rust
+```rust ignore
 use endian_writer_derive::EndianWritable;
+
 #[derive(EndianWritable)]
 #[repr(C)]
 struct MyStruct {
@@ -217,6 +215,8 @@ debug builds.
 You can use `write_entries` and `read_entries` for efficient batch operations.
 
 ```rust
+use endian_writer::*;
+
 #[derive(Debug, PartialEq, Copy, Clone)]
 struct FileEntry {
     hash: u64,
@@ -260,7 +260,20 @@ unsafe {
 }
 ```
 
+You can also convert to/from as part of the write step, for example, write `FileEntryB` as `FileEntry`.
+And read `FileEntry` as `FileEntryB`.
+
 ```rust
+use endian_writer::*;
+
+// The entry represented in the bytes
+#[derive(Debug, PartialEq, Copy, Clone)]
+struct FileEntry {
+    hash: u64,
+    data: u64,
+}
+
+// The entry represented in the code
 #[derive(Debug, PartialEq, Copy, Clone)]
 struct FileEntryB {
     hash: u64,
@@ -302,6 +315,26 @@ unsafe {
     let mut reader = LittleEndianReader::new(buffer.as_ptr());
     let mut read_entries = vec![FileEntryB { hash: 0, data: 0 }; 2];
     reader.read_entries_into::<FileEntryB, FileEntry>(&mut read_entries);
+}
+
+// Manual trait implementation, same as if you derived `EndianSerializable`
+impl HasSize for FileEntry {
+    const SIZE: usize = 16;
+}
+
+impl EndianWritableAt for FileEntry {
+    unsafe fn write_at<W: EndianWriter>(&self, writer: &mut W, offset: isize) {
+        writer.write_u64_at(self.hash, offset);
+        writer.write_u64_at(self.data, offset + 8);
+    }
+}
+
+impl EndianReadableAt for FileEntry {
+    unsafe fn read_at<R: EndianReader>(reader: &mut R, offset: isize) -> Self {
+        let hash = reader.read_u64_at(offset);
+        let data = reader.read_u64_at(offset + 8);
+        FileEntry { hash, data }
+    }
 }
 ```
 
