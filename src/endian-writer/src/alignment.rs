@@ -144,6 +144,7 @@ impl_byte_align!(crate::BigEndianWriter, ptr);
 mod tests {
     use super::*;
     use crate::*;
+    use std::vec;
 
     #[repr(C, align(64))]
     #[derive(Copy, Clone, Debug, PartialEq)]

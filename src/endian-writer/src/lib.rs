@@ -1,6 +1,8 @@
-#![doc = include_str!("../README.MD")]
-#![cfg_attr(not(test), no_std)]
+#![doc = include_str!(concat!("../", env!("CARGO_PKG_README")))]
+#![no_std]
 #![allow(clippy::size_of_in_element_count)]
+#[cfg(test)]
+extern crate std;
 pub mod alignment;
 pub mod big_endian_reader;
 pub mod big_endian_writer;

@@ -997,6 +997,8 @@ mod tests {
         EndianReadableAt, EndianReader, EndianReaderExt, EndianWritableAt, EndianWriter,
         EndianWriterExt, HasSize, LittleEndianReader, LittleEndianWriter,
     };
+    use std::vec;
+    use std::vec::Vec;
 
     #[derive(Clone)]
     struct TestEntry {
