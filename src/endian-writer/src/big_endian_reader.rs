@@ -128,7 +128,6 @@ impl EndianReader for BigEndianReader {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use core::f32;
 
     #[test]
     fn big_endian_reader_int() {
@@ -155,7 +154,7 @@ mod tests {
         let data: [u8; 4] = [0x40, 0x49, 0x0F, 0xDB]; // big-endian for 3.1415927f32
         let mut reader = unsafe { BigEndianReader::new(data.as_ptr()) };
         let value: f32 = unsafe { reader.read_f32() };
-        assert!((value - f32::consts::PI).abs() < f32::EPSILON);
+        assert!((value - core::f32::consts::PI).abs() < f32::EPSILON);
     }
 
     #[test]
@@ -167,6 +166,6 @@ mod tests {
         ];
         let mut reader = unsafe { BigEndianReader::new(data.as_ptr()) };
         let value: f32 = unsafe { reader.read_f32_at(8) };
-        assert!((value - f32::consts::PI).abs() < f32::EPSILON);
+        assert!((value - core::f32::consts::PI).abs() < f32::EPSILON);
     }
 }
