@@ -1,3 +1,4 @@
+use core::mem::MaybeUninit;
 use paste::paste;
 
 /// A trait for types that can be written using an [`EndianWriter`], with automatic advancing of
@@ -557,6 +558,70 @@ where
     }
 }
 
+/// Implementation of [`HasSize`] for arrays, composing the element size.
+impl<T: HasSize, const N: usize> HasSize for [T; N] {
+    /// The size in bytes of the array: `N * T::SIZE`.
+    const SIZE: usize = N * T::SIZE;
+}
+
+/// Implementation of [`EndianWritableAt`] for arrays of endian-writable elements.
+impl<T, const N: usize> EndianWritableAt for [T; N]
+where
+    T: EndianWritableAt + HasSize,
+{
+    /// Writes every element in index order at `offset + index * T::SIZE`, without advancing
+    /// the cursor/pointer.
+    ///
+    /// # Parameters
+    ///
+    /// * `writer`: A mutable reference to an object implementing [`EndianWriter`].
+    /// * `offset`: The offset in bytes from the current position.
+    ///
+    /// # Safety
+    ///
+    /// This method is unsafe because it involves writing directly to memory without bounds checking.
+    unsafe fn write_at<W: EndianWriter>(&self, writer: &mut W, offset: isize) {
+        let stride = T::SIZE as isize;
+
+        for (index, element) in self.iter().enumerate() {
+            element.write_at(writer, offset + index as isize * stride);
+        }
+    }
+}
+
+/// Implementation of [`EndianReadableAt`] for arrays of endian-readable elements.
+impl<T, const N: usize> EndianReadableAt for [T; N]
+where
+    T: EndianReadableAt + HasSize,
+{
+    /// Reads every element in index order from `offset + index * T::SIZE`, without advancing
+    /// the cursor/pointer.
+    ///
+    /// # Parameters
+    ///
+    /// * `reader`: A mutable reference to an object implementing [`EndianReader`].
+    /// * `offset`: The offset in bytes from the current position.
+    ///
+    /// # Returns
+    ///
+    /// An array with each element read from its serialized position.
+    ///
+    /// # Safety
+    ///
+    /// This method is unsafe because it involves reading directly from memory without bounds checking.
+    unsafe fn read_at<R: EndianReader>(reader: &mut R, offset: isize) -> Self {
+        let stride = T::SIZE as isize;
+
+        // Every slot is filled by the loop before the array is assumed initialized.
+        let mut elements: [MaybeUninit<T>; N] = MaybeUninit::uninit().assume_init();
+        for (index, element) in elements.iter_mut().enumerate() {
+            element.write(T::read_at(reader, offset + index as isize * stride));
+        }
+
+        elements.map(|element| unsafe { element.assume_init() })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -645,6 +710,88 @@ mod tests {
 
         let mut reader = unsafe { LittleEndianReader::new(buffer.as_ptr().add(10)) };
         let read: TestStruct = unsafe { reader.read() };
+
+        assert_eq!(original, read);
+    }
+
+    /// Little-endian arrays convert each element in order and advance the cursor by `N * T::SIZE`.
+    #[test]
+    fn little_endian_array_write() {
+        let mut buffer = [0u8; 16];
+        let mut writer = unsafe { LittleEndianWriter::new(buffer.as_mut_ptr()) };
+        let original = [0x08070605u32, 0x0C0B0A09, 0x0F0E0D0C];
+
+        unsafe {
+            writer.write(&original);
+            // Lands right after the array only if the cursor advanced by its size.
+            writer.write_u8(0xAA);
+        }
+
+        assert_eq!(
+            &buffer[..13],
+            &[0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0C, 0x0D, 0x0E, 0x0F, 0xAA]
+        );
+    }
+
+    /// Arrays stride elements by their serialized size (`HasSize::SIZE`), not by
+    /// `size_of`, which includes alignment padding.
+    #[test]
+    fn array_stride_uses_serialized_element_size() {
+        // Serializes to 6 bytes but occupies 8 in memory.
+        #[derive(Debug, PartialEq)]
+        struct Pair {
+            a: u32,
+            b: u16,
+        }
+
+        impl EndianWritableAt for Pair {
+            unsafe fn write_at<W: EndianWriter>(&self, writer: &mut W, offset: isize) {
+                writer.write_u32_at(self.a, offset);
+                writer.write_u16_at(self.b, offset + 4);
+            }
+        }
+
+        impl EndianReadableAt for Pair {
+            unsafe fn read_at<R: EndianReader>(reader: &mut R, offset: isize) -> Self {
+                Pair {
+                    a: reader.read_u32_at(offset),
+                    b: reader.read_u16_at(offset + 4),
+                }
+            }
+        }
+
+        impl HasSize for Pair {
+            const SIZE: usize = 6;
+        }
+
+        let original = [
+            Pair {
+                a: 0x12345678,
+                b: 0x9ABC,
+            },
+            Pair {
+                a: 0x0F0E0D0C,
+                b: 0x0A0B,
+            },
+        ];
+
+        let mut buffer = [0u8; 16];
+        let mut writer = unsafe { LittleEndianWriter::new(buffer.as_mut_ptr()) };
+        unsafe { writer.write(&original) };
+
+        // Element 2 starts at byte 6; the struct's 2 alignment padding bytes
+        // are never written.
+        assert_eq!(
+            buffer,
+            [
+                0x78, 0x56, 0x34, 0x12, 0xBC, 0x9A, // Pair 1: a, b
+                0x0C, 0x0D, 0x0E, 0x0F, 0x0B, 0x0A, // Pair 2: a, b
+                0, 0, 0, 0, // untouched
+            ]
+        );
+
+        let mut reader = unsafe { LittleEndianReader::new(buffer.as_ptr()) };
+        let read: [Pair; 2] = unsafe { reader.read() };
 
         assert_eq!(original, read);
     }
