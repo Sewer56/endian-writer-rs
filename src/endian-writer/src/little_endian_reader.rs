@@ -128,7 +128,6 @@ impl EndianReader for LittleEndianReader {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use core::f32;
 
     #[test]
     fn little_endian_reader_int() {
@@ -147,7 +146,7 @@ mod tests {
         ];
         let mut reader = unsafe { LittleEndianReader::new(data.as_ptr()) };
         let value: f32 = unsafe { reader.read_f32_at(8) };
-        assert!((value - f32::consts::PI).abs() < f32::EPSILON);
+        assert!((value - core::f32::consts::PI).abs() < f32::EPSILON);
     }
 
     #[test]
@@ -155,6 +154,6 @@ mod tests {
         let data: [u8; 4] = [0xDB, 0x0F, 0x49, 0x40]; // little-endian for 3.1415927f32
         let mut reader = unsafe { LittleEndianReader::new(data.as_ptr()) };
         let value: f32 = unsafe { reader.read_f32() };
-        assert!((value - f32::consts::PI).abs() < f32::EPSILON);
+        assert!((value - core::f32::consts::PI).abs() < f32::EPSILON);
     }
 }
